@@ -1,0 +1,103 @@
+import { createLens, createMirror, createDetector } from './optics-engine.js';
+
+export const setups = {
+    'single-lens': {
+        name: 'Single Convex Lens',
+        init: function({ opticalElements, elementGroup, traceRaysCallback }) {
+            const lensData = createLens('lens1', {x: 0, y: 0, z: 0}, 4, elementGroup);
+            opticalElements.push(lensData.element);
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="lens-x">Lens Position (X):</label><input type="range" id="lens-x" min="-5" max="5" value="0" step="0.1"><span id="lens-x-value">0.0</span></div>
+                <div class="control-row"><label for="focal-length">Focal Length:</label><input type="range" id="focal-length" min="1" max="10" value="4" step="0.1"><span id="focal-length-value">4.0</span></div>`;
+
+            document.getElementById('lens-x').addEventListener('input', (e) => {
+                lensData.mesh.position.x = parseFloat(e.target.value);
+                document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1);
+                traceRaysCallback();
+            });
+            document.getElementById('focal-length').addEventListener('input', (e) => {
+                lensData.element.focalLength = parseFloat(e.target.value);
+                document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1);
+                traceRaysCallback();
+            });
+        }
+    },
+    'flat-mirror': {
+        name: 'Flat Mirror',
+        // The init function now accepts the 'envMap' for reflections.
+        init: function({ opticalElements, elementGroup, traceRaysCallback, envMap }) {
+            // Pass the envMap to the createMirror function.
+            const mirrorData = createMirror('mirror1', {x: 0, y: 0, z: 0}, 45, envMap, elementGroup);
+            opticalElements.push(mirrorData.element);
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="mirror-x">Mirror Position (X):</label><input type="range" id="mirror-x" min="-5" max="5" value="0" step="0.1"><span id="mirror-x-value">0.0</span></div>
+                <div class="control-row"><label for="mirror-angle">Mirror Angle:</label><input type="range" id="mirror-angle" min="-90" max="90" value="45" step="1"><span id="mirror-angle-value">45&deg;</span></div>`;
+
+            document.getElementById('mirror-x').addEventListener('input', (e) => {
+                mirrorData.mesh.position.x = parseFloat(e.target.value);
+                document.getElementById('mirror-x-value').textContent = parseFloat(e.target.value).toFixed(1);
+                traceRaysCallback();
+            });
+            document.getElementById('mirror-angle').addEventListener('input', (e) => {
+                const angle = parseFloat(e.target.value);
+                mirrorData.mesh.rotation.y = -angle * (Math.PI / 180);
+                document.getElementById('mirror-angle-value').innerHTML = `${angle}&deg;`;
+                traceRaysCallback();
+            });
+            document.getElementById('mirror-angle').dispatchEvent(new Event('input'));
+        }
+    },
+    'two-lens-system': {
+        name: 'Two Lens System',
+        init: function({ opticalElements, elementGroup, traceRaysCallback }) {
+            const lens1Data = createLens('lens1', {x: -3, y: 0, z: 0}, 4, elementGroup);
+            const lens2Data = createLens('lens2', {x: 3, y: 0, z: 0}, 4, elementGroup);
+            opticalElements.push(lens1Data.element, lens2Data.element);
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="setup-title">Lens 1</div>
+                <div class="control-row"><label for="lens1-x">Position (X):</label><input type="range" id="lens1-x" min="-8" max="8" value="-3" step="0.1"><span id="lens1-x-value">-3.0</span></div>
+                <div class="control-row"><label for="lens1-focal">Focal Length:</label><input type="range" id="lens1-focal" min="1" max="10" value="4" step="0.1"><span id="lens1-focal-value">4.0</span></div>
+                <hr>
+                <div class="setup-title">Lens 2</div>
+                <div class="control-row"><label for="lens2-x">Position (X):</label><input type="range" id="lens2-x" min="-8" max="8" value="3" step="0.1"><span id="lens2-x-value">3.0</span></div>
+                <div class="control-row"><label for="lens2-focal">Focal Length:</label><input type="range" id="lens2-focal" min="1" max="10" value="4" step="0.1"><span id="lens2-focal-value">4.0</span></div>
+                <hr>
+                <div class="control-row"><label>Collimation:</label><span id="collimation-percent" style="font-weight: bold;">--%</span></div>
+            `;
+
+            document.getElementById('lens1-x').addEventListener('input', (e) => { lens1Data.mesh.position.x = parseFloat(e.target.value); document.getElementById('lens1-x-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('lens1-focal').addEventListener('input', (e) => { lens1Data.element.focalLength = parseFloat(e.target.value); document.getElementById('lens1-focal-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('lens2-x').addEventListener('input', (e) => { lens2Data.mesh.position.x = parseFloat(e.target.value); document.getElementById('lens2-x-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('lens2-focal').addEventListener('input', (e) => { lens2Data.element.focalLength = parseFloat(e.target.value); document.getElementById('lens2-focal-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+        }
+    },
+    'camera-sensor': {
+        name: 'Camera Sensor',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, laserSource }) {
+            const lensData = createLens('lens1', {x: 0, y: 0, z: 0}, 5, elementGroup);
+            const detectorData = createDetector('detector1', {x: 8, y: 0, z: 0}, elementGroup);
+            opticalElements.push(lensData.element, detectorData.element);
+
+            document.getElementById('pixel-viewer-container').style.display = 'block';
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="laser-y">Laser Vertical Pos:</label><input type="range" id="laser-y" min="-1.5" max="1.5" value="0" step="0.1"><span id="laser-y-value">0.0</span></div>
+                <hr>
+                <div class="setup-title">Lens</div>
+                <div class="control-row"><label for="lens-x">Position (X):</label><input type="range" id="lens-x" min="-5" max="5" value="0" step="0.1"><span id="lens-x-value">0.0</span></div>
+                <div class="control-row"><label for="focal-length">Focal Length:</label><input type="range" id="focal-length" min="1" max="10" value="5" step="0.1"><span id="focal-length-value">5.0</span></div>
+            `;
+
+            document.getElementById('laser-y').addEventListener('input', (e) => { laserSource.position.y = parseFloat(e.target.value); document.getElementById('laser-y-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('lens-x').addEventListener('input', (e) => { lensData.mesh.position.x = parseFloat(e.target.value); document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('focal-length').addEventListener('input', (e) => { lensData.element.focalLength = parseFloat(e.target.value); document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+        }
+    }
+};
