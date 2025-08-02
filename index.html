@@ -33,6 +33,22 @@
                 <option value="camera-sensor">Camera Sensor</option>
             </select>
         </div>
+        
+        <!-- NEW: Wavelength Controls -->
+        <div class="control-row">
+            <label for="wavelength-select">Light Source:</label>
+            <select id="wavelength-select">
+                <option value="white" selected>White Light</option>
+                <option value="single">Single Wavelength</option>
+            </select>
+        </div>
+        <div class="control-row" id="wavelength-slider-container" style="display: none;">
+            <label for="wavelength-slider">Wavelength:</label>
+            <input type="range" id="wavelength-slider" min="400" max="700" value="532" step="1">
+            <span id="wavelength-value" style="min-width: 50px;">532 nm</span>
+        </div>
+        <!-- END: Wavelength Controls -->
+
         <hr>
         <!-- Controls for the selected setup will be dynamically inserted here -->
         <div id="setup-controls"></div>

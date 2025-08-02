@@ -40,10 +40,22 @@ const laserSource = new THREE.Mesh(
 laserSource.position.set(-10, 0, 0);
 scene.add(laserSource);
 
+// Central config for simulation parameters that can be shared
+const simulationConfig = {
+    wavelength: 'white' // Default to white light
+};
+
 // === PIXEL VIEWER STATE ===
 const pixelCanvas = document.getElementById('pixel-canvas');
 const pixelCtx = pixelCanvas.getContext('2d');
-const pixelGridSize = 10;
+// --- CHANGE: Increased pixel grid resolution ---
+const pixelGridSize = 50;
+
+// === UI ELEMENT REFERENCES ===
+const wavelengthSelect = document.getElementById('wavelength-select');
+const wavelengthSliderContainer = document.getElementById('wavelength-slider-container');
+const wavelengthSlider = document.getElementById('wavelength-slider');
+const wavelengthValue = document.getElementById('wavelength-value');
 
 // === CORE APPLICATION LOGIC ===
 
@@ -55,7 +67,7 @@ function updateSimulation() {
         pixelCtx,
         pixelCanvas,
         pixelGridSize,
-        setupKey: document.getElementById('setup-select').value
+        wavelength: simulationConfig.wavelength
     });
 }
 
@@ -86,8 +98,8 @@ function switchSetup(setupKey) {
             elementGroup,
             traceRaysCallback: updateSimulation,
             laserSource,
-            // Pass the reflection texture to the setup.
-            envMap: cubeCamera.renderTarget.texture
+            envMap: cubeCamera.renderTarget.texture,
+            simulationConfig // Pass the shared config
         });
     }
     updateSimulation();
@@ -95,6 +107,25 @@ function switchSetup(setupKey) {
 
 // === EVENT LISTENERS & INITIALIZATION ===
 document.getElementById('setup-select').addEventListener('change', (e) => switchSetup(e.target.value));
+
+wavelengthSelect.addEventListener('change', (e) => {
+    if (e.target.value === 'single') {
+        wavelengthSliderContainer.style.display = 'flex';
+        simulationConfig.wavelength = parseInt(wavelengthSlider.value);
+    } else {
+        wavelengthSliderContainer.style.display = 'none';
+        simulationConfig.wavelength = 'white';
+    }
+    updateSimulation();
+});
+
+wavelengthSlider.addEventListener('input', (e) => {
+    const wl = parseInt(e.target.value);
+    simulationConfig.wavelength = wl;
+    wavelengthValue.textContent = `${wl} nm`;
+    updateSimulation();
+});
+
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -109,26 +140,21 @@ function animate() {
     const mirror = elementGroup.children.find(c => c.name === 'mirror1');
 
     if (mirror) {
-        // Hide non-physical elements before rendering the reflection
         mirror.visible = false;
         rayGroup.visible = false;
-
-        // Update the reflection
         cubeCamera.position.copy(mirror.position);
         cubeCamera.update(renderer, scene);
-
-        // Make everything visible again for the main render
         mirror.visible = true;
         rayGroup.visible = true;
     }
 
-    // Explicitly set the scene's environment map
     scene.environment = cubeCamera.renderTarget.texture;
-
     orbitControls.update();
-    renderer.render(scene, camera); // Render the main scene to the canvas
+    renderer.render(scene, camera);
 }
 
 // --- START THE APP ---
+// Initialize UI state
+wavelengthSelect.dispatchEvent(new Event('change'));
 switchSetup('single-lens');
 animate();
