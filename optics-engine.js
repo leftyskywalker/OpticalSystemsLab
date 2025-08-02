@@ -1,4 +1,4 @@
-// === OPTICS ENGINE - V3.4 (Corrected White Light & 0th Order) ===
+// === OPTICS ENGINE - V3.5 (Bayer Filter Restored) ===
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -286,14 +286,12 @@ export function traceRays(config) {
         
         if (initialRays.length > 20 && index % 5 !== 0) return;
         
-        // --- FIX: Robust logic for drawing white light vs colored light ---
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating');
-            // This check is crucial for the bug fix
             if (grating) {
                 const gratingX = grating.mesh.position.x;
                 let splitIndex = finalPath.path.findIndex(p => p.x.toPrecision(5) === gratingX.toPrecision(5));
-                if (splitIndex === -1) splitIndex = 1; // Failsafe if point not found
+                if (splitIndex === -1) splitIndex = 1;
 
                 const preSplitPath = finalPath.path.slice(0, splitIndex + 1);
                 const postSplitPath = finalPath.path.slice(splitIndex);
@@ -303,7 +301,6 @@ export function traceRays(config) {
                     rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), whiteMaterial));
                 }
                 if (postSplitPath.length > 1) {
-                    // Check if it's the 0th order ray
                     const color = finalPath.ray.diffractionOrder === 0 ? 0x000000 : wavelengthToRGB(finalPath.ray.wavelength);
                     const colorMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
                     rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), colorMaterial));
@@ -327,9 +324,21 @@ export function traceRays(config) {
                     const r = Math.round(255 * (pixel.r / maxIntensity));
                     const g = Math.round(255 * (pixel.g / maxIntensity));
                     const b = Math.round(255 * (pixel.b / maxIntensity));
-                    if (sensorType === 'demosaiced') {
+                    
+                    // --- FIX: Restored the Bayer filter logic ---
+                    if (sensorType === 'bayer') {
+                        const isTopRow = y % 2 === 0;
+                        const isLeftColumn = x % 2 === 0;
+                        if (isTopRow) {
+                            if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
+                            else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`; // Red
+                        } else {
+                            if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`; // Blue
+                            else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
+                        }
+                    } else if (sensorType === 'demosaiced') {
                         pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                    } else {
+                    } else { // Grayscale
                         const gray = Math.round((r + g + b) / 3);
                         pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
                     }
