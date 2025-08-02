@@ -1,4 +1,4 @@
-// === OPTICS ENGINE - V3.5 (Bayer Filter Restored) ===
+// === OPTICS ENGINE - V3.6 (Correct Demosaiced Color) ===
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -12,7 +12,7 @@ export class Ray {
 }
 
 /**
- * A helper function to convert a wavelength in nanometers to an RGB color.
+ * A helper function to convert a wavelength in nanometers to an RGB color for VISUALIZATION ONLY.
  */
 function wavelengthToRGB(wavelength) {
     let r, g, b;
@@ -41,6 +41,22 @@ function wavelengthToRGB(wavelength) {
     }
     return new THREE.Color(r * factor, g * factor, b * factor);
 }
+
+/**
+ * Simulates the spectral response of a color filter.
+ */
+function getFilterResponse(wavelength, filterType) {
+    let peak, width;
+    switch (filterType) {
+        case 'R': peak = 600; width = 50; break;
+        case 'G': peak = 540; width = 50; break;
+        case 'B': peak = 450; width = 50; break;
+        default: return 0;
+    }
+    const exponent = -((wavelength - peak) ** 2) / (2 * width ** 2);
+    return Math.exp(exponent);
+}
+
 
 // --- COMPONENT FACTORIES ---
 
@@ -167,7 +183,7 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
                             const newAngle = originalAngle + theta_m;
                             const newDir = new THREE.Vector3(Math.cos(newAngle), Math.sin(newAngle), ray.direction.z).normalize();
                             const newRay = new Ray(intersectPoint, newDir, ray.wavelength);
-                            newRay.diffractionOrder = m; // Tag the ray with its order
+                            newRay.diffractionOrder = m;
                             newRays.push(newRay);
                         }
                     }
@@ -199,8 +215,11 @@ export function traceRays(config) {
         pixelCtx.fillRect(0, 0, pixelCanvas.width, pixelCanvas.height);
     }
 
-    const pixelIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
-    let maxIntensity = 0;
+    // --- CHANGE: Two separate grids for sensor simulation vs. true color ---
+    const sensorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
+    const trueColorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
+    let maxSensorIntensity = 0;
+    let maxTrueColorIntensity = 0;
 
     // 2. Generate initial rays
     let initialRays = [];
@@ -263,10 +282,19 @@ export function traceRays(config) {
                     const pixelY = Math.floor((-localPoint.y / detectorHeight + 0.5) * pixelGridSize);
 
                     if (pixelX >= 0 && pixelX < pixelGridSize && pixelY >= 0 && pixelY < pixelGridSize) {
-                         const pixel = pixelIntensities[pixelY][pixelX];
-                         const color = wavelengthToRGB(result.wavelength);
-                         pixel.r += color.r; pixel.g += color.g; pixel.b += color.b;
-                         maxIntensity = Math.max(maxIntensity, pixel.r, pixel.g, pixel.b);
+                         // --- CHANGE: Populate both intensity grids ---
+                         const sensorPixel = sensorIntensities[pixelY][pixelX];
+                         sensorPixel.r += getFilterResponse(result.wavelength, 'R');
+                         sensorPixel.g += getFilterResponse(result.wavelength, 'G');
+                         sensorPixel.b += getFilterResponse(result.wavelength, 'B');
+                         maxSensorIntensity = Math.max(maxSensorIntensity, sensorPixel.r, sensorPixel.g, sensorPixel.b);
+                         
+                         const trueColorPixel = trueColorIntensities[pixelY][pixelX];
+                         const trueColor = wavelengthToRGB(result.wavelength);
+                         trueColorPixel.r += trueColor.r;
+                         trueColorPixel.g += trueColor.g;
+                         trueColorPixel.b += trueColor.b;
+                         maxTrueColorIntensity = Math.max(maxTrueColorIntensity, trueColorPixel.r, trueColorPixel.g, trueColorPixel.b);
                     }
                 } else {
                     nextActivePaths.push(currentPath);
@@ -315,34 +343,48 @@ export function traceRays(config) {
     });
 
     // 5. Draw the final image on the sensor canvas
-    if (pixelCtx && maxIntensity > 0) {
+    if (pixelCtx) {
         const pixelSize = pixelCanvas.width / pixelGridSize;
         for (let y = 0; y < pixelGridSize; y++) {
             for (let x = 0; x < pixelGridSize; x++) {
-                const pixel = pixelIntensities[y][x];
-                if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
-                    const r = Math.round(255 * (pixel.r / maxIntensity));
-                    const g = Math.round(255 * (pixel.g / maxIntensity));
-                    const b = Math.round(255 * (pixel.b / maxIntensity));
-                    
-                    // --- FIX: Restored the Bayer filter logic ---
-                    if (sensorType === 'bayer') {
-                        const isTopRow = y % 2 === 0;
-                        const isLeftColumn = x % 2 === 0;
-                        if (isTopRow) {
-                            if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
-                            else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`; // Red
-                        } else {
-                            if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`; // Blue
-                            else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
+                if (sensorType === 'demosaiced') {
+                    // --- CHANGE: Use the trueColorIntensities grid ---
+                    if (maxTrueColorIntensity > 0) {
+                        const pixel = trueColorIntensities[y][x];
+                        if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
+                            const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
+                            const g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
+                            const b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
+                            pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                            pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
                         }
-                    } else if (sensorType === 'demosaiced') {
-                        pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                    } else { // Grayscale
-                        const gray = Math.round((r + g + b) / 3);
-                        pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
                     }
-                    pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+                } else {
+                    // --- CHANGE: Use the sensorIntensities grid for Bayer/Grayscale ---
+                    if (maxSensorIntensity > 0) {
+                        const pixel = sensorIntensities[y][x];
+                        if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
+                            const r = Math.round(255 * (pixel.r / maxSensorIntensity));
+                            const g = Math.round(255 * (pixel.g / maxSensorIntensity));
+                            const b = Math.round(255 * (pixel.b / maxSensorIntensity));
+                            
+                            if (sensorType === 'bayer') {
+                                const isTopRow = y % 2 === 0;
+                                const isLeftColumn = x % 2 === 0;
+                                if (isTopRow) {
+                                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
+                                    else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`; // Red
+                                } else {
+                                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`; // Blue
+                                    else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
+                                }
+                            } else { // Grayscale
+                                const gray = Math.round((r + g + b) / 3);
+                                pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
+                            }
+                            pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+                        }
+                    }
                 }
             }
         }

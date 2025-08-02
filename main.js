@@ -93,14 +93,15 @@ function clearSetup() {
     }
     document.getElementById('setup-controls').innerHTML = '';
     document.getElementById('pixel-viewer-container').style.display = 'none';
-    sensorTypeContainer.style.display = 'none';
+    sensorTypeContainer.style.display = 'none'; // Hide sensor control by default
     laserSource.position.y = 0;
-    laserSource.position.z = 0; // Reset horizontal position too
+    laserSource.position.z = 0;
 }
 
 function switchSetup(setupKey) {
     clearSetup();
-    if (setupKey === 'camera-sensor' || setupKey === 'diffraction-grating') {
+    // --- CHANGE: Only show the sensor type control for the camera setup ---
+    if (setupKey === 'camera-sensor') {
         sensorTypeContainer.style.display = 'flex';
     }
     const setup = setups[setupKey];
