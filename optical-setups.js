@@ -1,4 +1,5 @@
-import { createLens, createMirror, createDetector, createDiffractionGrating } from './optics-engine.js';
+// --- FIX: Added createSphericalMirror to the import list ---
+import { createLens, createMirror, createDetector, createDiffractionGrating, createSphericalMirror } from './optics-engine.js';
 
 export const setups = {
     'single-lens': {
@@ -38,6 +39,30 @@ export const setups = {
             document.getElementById('mirror-x').addEventListener('input', (e) => { mirrorData.mesh.position.x = parseFloat(e.target.value); document.getElementById('mirror-x-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
             document.getElementById('mirror-angle').addEventListener('input', (e) => { const angle = parseFloat(e.target.value); mirrorData.mesh.rotation.y = -angle * (Math.PI / 180); document.getElementById('mirror-angle-value').innerHTML = `${angle}&deg;`; traceRaysCallback(); });
             document.getElementById('mirror-angle').dispatchEvent(new Event('input'));
+        }
+    },
+    // --- NEW: Spherical Mirror Setup ---
+    'spherical-mirror': {
+        name: 'Spherical Mirror',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig }) {
+            const mirrorData = createSphericalMirror('spherical_mirror_1', {x: 5, y: 0, z: 0}, -10, envMap, elementGroup);
+            opticalElements.push(mirrorData.element);
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="mirror-x">Mirror Position (X):</label><input type="range" id="mirror-x" min="-5" max="8" value="5" step="0.1"><span id="mirror-x-value">5.0</span></div>
+                <div class="control-row"><label for="mirror-radius">Radius of Curvature:</label><input type="range" id="mirror-radius" min="-20" max="-5" value="-10" step="0.1"><span id="mirror-radius-value">-10.0</span></div>`;
+
+            document.getElementById('mirror-x').addEventListener('input', (e) => {
+                mirrorData.mesh.position.x = parseFloat(e.target.value);
+                document.getElementById('mirror-x-value').textContent = parseFloat(e.target.value).toFixed(1);
+                traceRaysCallback();
+            });
+            document.getElementById('mirror-radius').addEventListener('input', (e) => {
+                mirrorData.element.radius = parseFloat(e.target.value);
+                document.getElementById('mirror-radius-value').textContent = parseFloat(e.target.value).toFixed(1);
+                traceRaysCallback();
+            });
         }
     },
     'two-lens-system': {
@@ -96,10 +121,8 @@ export const setups = {
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
             const gratingConfig = { linesPerMM: 1000 };
             const gratingData = createDiffractionGrating('grating1', {x: 0, y: 0, z: 0}, gratingConfig, elementGroup);
-            // --- FIX: Removed the detector ---
             opticalElements.push(gratingData.element);
 
-            // Hide the pixel viewer since there's no detector
             document.getElementById('pixel-viewer-container').style.display = 'none';
 
             const controlsDiv = document.getElementById('setup-controls');
@@ -115,4 +138,5 @@ export const setups = {
         }
     }
 };
+
 

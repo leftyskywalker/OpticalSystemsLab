@@ -1,4 +1,4 @@
-// === OPTICS ENGINE - V3.6 (Correct Demosaiced Color) ===
+// === OPTICS ENGINE - V4.0 (Spherical Mirror) ===
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -55,6 +55,30 @@ function getFilterResponse(wavelength, filterType) {
     }
     const exponent = -((wavelength - peak) ** 2) / (2 * width ** 2);
     return Math.exp(exponent);
+}
+
+/**
+ * --- NEW: Helper function for ray-sphere intersection ---
+ */
+function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
+    const L = sphereCenter.clone().sub(ray.origin);
+    const tca = L.dot(ray.direction);
+    if (tca < 0 && sphereRadius < 0) return null; // Convex mirror behind ray
+
+    const d2 = L.dot(L) - tca * tca;
+    const radius2 = sphereRadius * sphereRadius;
+    if (d2 > radius2) return null;
+
+    const thc = Math.sqrt(radius2 - d2);
+    let t0 = tca - thc;
+    let t1 = tca + thc;
+
+    if (t0 > t1) [t0, t1] = [t1, t0]; // Swap
+
+    if (t0 > 1e-6) return ray.origin.clone().add(ray.direction.clone().multiplyScalar(t0));
+    if (t1 > 1e-6) return ray.origin.clone().add(ray.direction.clone().multiplyScalar(t1));
+    
+    return null;
 }
 
 
@@ -127,6 +151,50 @@ export function createMirror(name, position, angle, envMap, elementGroup) {
     };
     return { mesh, element };
 }
+
+/**
+ * --- NEW: Creates a spherical mirror component. ---
+ */
+export function createSphericalMirror(name, position, radius, envMap, elementGroup) {
+    const mirrorMaterial = new THREE.MeshStandardMaterial({
+        color: 0xeeeeee, metalness: 1.0, roughness: 0.0, envMap: envMap, side: THREE.DoubleSide
+    });
+    // Use LatheGeometry to create a visually curved surface
+    const points = [];
+    const segments = 32;
+    const aperture = 2.5;
+    for (let i = 0; i <= segments; i++) {
+        const y = (i / segments) * aperture;
+        const x_offset = Math.abs(radius) - Math.sqrt(radius*radius - y*y);
+        points.push(new THREE.Vector2(y, -x_offset));
+    }
+    const mirrorGeometry = new THREE.LatheGeometry(points, 32);
+    const mesh = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
+    mesh.name = name;
+    mesh.position.set(position.x, position.y, position.z);
+    mesh.rotation.z = Math.PI / 2;
+    elementGroup.add(mesh);
+
+    const element = {
+        mesh: mesh, type: 'spherical-mirror', radius: radius,
+        processRay: function(ray) {
+            const sphereCenter = new THREE.Vector3(this.mesh.position.x + this.radius, this.mesh.position.y, this.mesh.position.z);
+            const intersectPoint = getRaySphereIntersection(ray, sphereCenter, this.radius);
+            
+            if (intersectPoint) {
+                const distToCenter = intersectPoint.distanceTo(new THREE.Vector3(this.mesh.position.x, intersectPoint.y, intersectPoint.z));
+                if (distToCenter > aperture) return null; // Missed the mirror aperture
+
+                const normal = intersectPoint.clone().sub(sphereCenter).normalize();
+                const reflectedDir = ray.direction.clone().reflect(normal);
+                return { newRay: new Ray(intersectPoint, reflectedDir, ray.wavelength) };
+            }
+            return null;
+        }
+    };
+    return { mesh, element };
+}
+
 
 export function createDetector(name, position, elementGroup) {
     const detectorMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, side: THREE.DoubleSide });
@@ -215,7 +283,6 @@ export function traceRays(config) {
         pixelCtx.fillRect(0, 0, pixelCanvas.width, pixelCanvas.height);
     }
 
-    // --- CHANGE: Two separate grids for sensor simulation vs. true color ---
     const sensorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
     const trueColorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
     let maxSensorIntensity = 0;
@@ -282,7 +349,6 @@ export function traceRays(config) {
                     const pixelY = Math.floor((-localPoint.y / detectorHeight + 0.5) * pixelGridSize);
 
                     if (pixelX >= 0 && pixelX < pixelGridSize && pixelY >= 0 && pixelY < pixelGridSize) {
-                         // --- CHANGE: Populate both intensity grids ---
                          const sensorPixel = sensorIntensities[pixelY][pixelX];
                          sensorPixel.r += getFilterResponse(result.wavelength, 'R');
                          sensorPixel.g += getFilterResponse(result.wavelength, 'G');
@@ -348,7 +414,6 @@ export function traceRays(config) {
         for (let y = 0; y < pixelGridSize; y++) {
             for (let x = 0; x < pixelGridSize; x++) {
                 if (sensorType === 'demosaiced') {
-                    // --- CHANGE: Use the trueColorIntensities grid ---
                     if (maxTrueColorIntensity > 0) {
                         const pixel = trueColorIntensities[y][x];
                         if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
@@ -360,7 +425,6 @@ export function traceRays(config) {
                         }
                     }
                 } else {
-                    // --- CHANGE: Use the sensorIntensities grid for Bayer/Grayscale ---
                     if (maxSensorIntensity > 0) {
                         const pixel = sensorIntensities[y][x];
                         if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
