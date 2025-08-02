@@ -95,11 +95,12 @@ function clearSetup() {
     document.getElementById('pixel-viewer-container').style.display = 'none';
     sensorTypeContainer.style.display = 'none';
     laserSource.position.y = 0;
+    laserSource.position.z = 0; // Reset horizontal position too
 }
 
 function switchSetup(setupKey) {
     clearSetup();
-    if (setupKey === 'camera-sensor') {
+    if (setupKey === 'camera-sensor' || setupKey === 'diffraction-grating') {
         sensorTypeContainer.style.display = 'flex';
     }
     const setup = setups[setupKey];

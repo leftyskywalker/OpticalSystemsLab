@@ -1,4 +1,4 @@
-import { createLens, createMirror, createDetector } from './optics-engine.js';
+import { createLens, createMirror, createDetector, createDiffractionGrating } from './optics-engine.js';
 
 export const setups = {
     'single-lens': {
@@ -76,7 +76,6 @@ export const setups = {
             document.getElementById('pixel-viewer-container').style.display = 'block';
 
             const controlsDiv = document.getElementById('setup-controls');
-            // --- CHANGE: Added horizontal laser position control ---
             controlsDiv.innerHTML = `
                 <div class="control-row"><label for="laser-y">Laser Vertical Pos:</label><input type="range" id="laser-y" min="-1.5" max="1.5" value="0" step="0.1"><span id="laser-y-value">0.0</span></div>
                 <div class="control-row"><label for="laser-z">Laser Horizontal Pos:</label><input type="range" id="laser-z" min="-1.5" max="1.5" value="0" step="0.1"><span id="laser-z-value">0.0</span></div>
@@ -86,28 +85,32 @@ export const setups = {
                 <div class="control-row"><label for="focal-length">Focal Length:</label><input type="range" id="focal-length" min="1" max="10" value="5" step="0.1"><span id="focal-length-value">5.0</span></div>
             `;
 
-            document.getElementById('laser-y').addEventListener('input', (e) => { 
-                laserSource.position.y = parseFloat(e.target.value); 
-                document.getElementById('laser-y-value').textContent = parseFloat(e.target.value).toFixed(1); 
-                traceRaysCallback(); 
-            });
-            
-            // --- CHANGE: Added event listener for the new slider ---
-            document.getElementById('laser-z').addEventListener('input', (e) => { 
-                laserSource.position.z = parseFloat(e.target.value); 
-                document.getElementById('laser-z-value').textContent = parseFloat(e.target.value).toFixed(1); 
-                traceRaysCallback(); 
-            });
+            document.getElementById('laser-y').addEventListener('input', (e) => { laserSource.position.y = parseFloat(e.target.value); document.getElementById('laser-y-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('laser-z').addEventListener('input', (e) => { laserSource.position.z = parseFloat(e.target.value); document.getElementById('laser-z-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('lens-x').addEventListener('input', (e) => { lensData.mesh.position.x = parseFloat(e.target.value); document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('focal-length').addEventListener('input', (e) => { lensData.element.focalLength = parseFloat(e.target.value); document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+        }
+    },
+    'diffraction-grating': {
+        name: 'Diffraction Grating',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
+            const gratingConfig = { linesPerMM: 1000 };
+            const gratingData = createDiffractionGrating('grating1', {x: 0, y: 0, z: 0}, gratingConfig, elementGroup);
+            // --- FIX: Removed the detector ---
+            opticalElements.push(gratingData.element);
 
-            document.getElementById('lens-x').addEventListener('input', (e) => { 
-                lensData.mesh.position.x = parseFloat(e.target.value); 
-                document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1); 
-                traceRaysCallback(); 
-            });
-            document.getElementById('focal-length').addEventListener('input', (e) => { 
-                lensData.element.focalLength = parseFloat(e.target.value); 
-                document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1); 
-                traceRaysCallback(); 
+            // Hide the pixel viewer since there's no detector
+            document.getElementById('pixel-viewer-container').style.display = 'none';
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="grating-x">Grating Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0</span></div>
+            `;
+
+            document.getElementById('grating-x').addEventListener('input', (e) => {
+                gratingData.mesh.position.x = parseFloat(e.target.value);
+                document.getElementById('grating-x-value').textContent = parseFloat(e.target.value).toFixed(1);
+                traceRaysCallback();
             });
         }
     }
