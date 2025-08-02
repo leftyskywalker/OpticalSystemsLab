@@ -1,4 +1,4 @@
-// === OPTICS ENGINE - V3.0 (Unified Tracing Model) ===
+// === OPTICS ENGINE - V3.4 (Corrected White Light & 0th Order) ===
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -159,14 +159,16 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
                     const newRays = [];
                     const d = 1000000 / this.linesPerMM;
                     
-                    for (let m = -5; m <= 5; m++) {
+                    for (let m = -1; m <= 1; m++) {
                         const sin_theta_m = (m * ray.wavelength) / d;
                         if (Math.abs(sin_theta_m) <= 1) {
                             const theta_m = Math.asin(sin_theta_m);
                             const originalAngle = Math.atan2(ray.direction.y, ray.direction.x);
                             const newAngle = originalAngle + theta_m;
                             const newDir = new THREE.Vector3(Math.cos(newAngle), Math.sin(newAngle), ray.direction.z).normalize();
-                            newRays.push(new Ray(intersectPoint, newDir, ray.wavelength));
+                            const newRay = new Ray(intersectPoint, newDir, ray.wavelength);
+                            newRay.diffractionOrder = m; // Tag the ray with its order
+                            newRays.push(newRay);
                         }
                     }
                     return { newRays: newRays };
@@ -180,7 +182,7 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
 
 
 /**
- * --- NEW: Unified Ray Tracing Engine ---
+ * --- Unified Ray Tracing Engine ---
  */
 export function traceRays(config) {
     const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType } = config;
@@ -203,44 +205,39 @@ export function traceRays(config) {
     // 2. Generate initial rays
     let initialRays = [];
     const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
-    const useSingleRay = setupKey === 'diffraction-grating';
     const beamSize = 1.0; 
 
     wavelengths.forEach(wl => {
-        if (useSingleRay) {
-             initialRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y, laserSource.position.z), new THREE.Vector3(1, 0, 0), wl));
-        } else {
-            let patternRays = [];
-            const parallelDirection = new THREE.Vector3(1, 0, 0);
-            switch (laserPattern) {
-                case 'line':
-                    for (let i = 0; i < 100; i++) {
-                        const yOffset = -beamSize / 2 + beamSize * (i / 99);
-                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
-                    }
-                    break;
-                case 'radial':
-                     for (let i = 0; i < 100; i++) {
-                        const angle = (i / 99) * 2 * Math.PI;
-                        const yOffset = Math.sin(angle) * beamSize / 2;
-                        const zOffset = Math.cos(angle) * beamSize / 2;
-                        const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
-                        patternRays.push(new Ray(startPoint, parallelDirection, wl));
-                    }
-                    break;
-            }
-            initialRays.push(...patternRays);
+        let patternRays = [];
+        const parallelDirection = new THREE.Vector3(1, 0, 0);
+        switch (laserPattern) {
+            case 'line':
+                for (let i = 0; i < 100; i++) {
+                    const yOffset = -beamSize / 2 + beamSize * (i / 99);
+                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
+                }
+                break;
+            case 'radial':
+                 for (let i = 0; i < 100; i++) {
+                    const angle = (i / 99) * 2 * Math.PI;
+                    const yOffset = Math.sin(angle) * beamSize / 2;
+                    const zOffset = Math.cos(angle) * beamSize / 2;
+                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
+                    patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                }
+                break;
         }
+        initialRays.push(...patternRays);
     });
 
     // 3. Unified Tracing Loop
-    let activePaths = initialRays.map(ray => ({ ray: ray, path: [ray.origin], terminated: false }));
+    let activePaths = initialRays.map(ray => ({ ray: ray, path: [ray.origin], terminated: false, hasSplit: false }));
 
     for (const element of opticalElements) {
         let nextActivePaths = [];
         for (const currentPath of activePaths) {
             if (currentPath.terminated) {
-                nextActivePaths.push(currentPath); // Pass through terminated paths
+                nextActivePaths.push(currentPath);
                 continue;
             }
 
@@ -248,7 +245,7 @@ export function traceRays(config) {
             if (result) {
                 if (result.newRays) { // Branching case (grating)
                     result.newRays.forEach(newRay => {
-                        nextActivePaths.push({ ray: newRay, path: [...currentPath.path, newRay.origin], terminated: false });
+                        nextActivePaths.push({ ray: newRay, path: [...currentPath.path, newRay.origin], terminated: false, hasSplit: true });
                     });
                 } else if (result.newRay) { // Single path case (lens/mirror)
                     currentPath.path.push(result.newRay.origin);
@@ -257,7 +254,7 @@ export function traceRays(config) {
                 } else if (result.intersection) { // Absorbing case (detector)
                     currentPath.path.push(result.intersection);
                     currentPath.terminated = true;
-                    nextActivePaths.push(currentPath); // Keep the path for drawing, but mark as terminated
+                    nextActivePaths.push(currentPath);
                     
                     const detector = element.mesh;
                     const localPoint = detector.worldToLocal(result.intersection.clone());
@@ -287,12 +284,37 @@ export function traceRays(config) {
             finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
         }
         
-        if (initialRays.length > 10 && index % 10 !== 0 && !useSingleRay) return;
+        if (initialRays.length > 20 && index % 5 !== 0) return;
         
-        const beamMaterial = new THREE.LineBasicMaterial({ color: wavelengthToRGB(finalPath.ray.wavelength), transparent: true, opacity: 0.5 });
-        const beamGeometry = new THREE.BufferGeometry().setFromPoints(finalPath.path);
-        const rayLine = new THREE.Line(beamGeometry, beamMaterial);
-        rayGroup.add(rayLine);
+        // --- FIX: Robust logic for drawing white light vs colored light ---
+        if (wavelength === 'white' && finalPath.hasSplit) {
+            const grating = opticalElements.find(el => el.type === 'grating');
+            // This check is crucial for the bug fix
+            if (grating) {
+                const gratingX = grating.mesh.position.x;
+                let splitIndex = finalPath.path.findIndex(p => p.x.toPrecision(5) === gratingX.toPrecision(5));
+                if (splitIndex === -1) splitIndex = 1; // Failsafe if point not found
+
+                const preSplitPath = finalPath.path.slice(0, splitIndex + 1);
+                const postSplitPath = finalPath.path.slice(splitIndex);
+
+                if (preSplitPath.length > 1) {
+                    const whiteMaterial = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 });
+                    rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), whiteMaterial));
+                }
+                if (postSplitPath.length > 1) {
+                    // Check if it's the 0th order ray
+                    const color = finalPath.ray.diffractionOrder === 0 ? 0x000000 : wavelengthToRGB(finalPath.ray.wavelength);
+                    const colorMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
+                    rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), colorMaterial));
+                }
+            }
+        } else {
+            const color = (wavelength === 'white') ? 0x000000 : wavelengthToRGB(finalPath.ray.wavelength);
+            const beamMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
+            const beamGeometry = new THREE.BufferGeometry().setFromPoints(finalPath.path);
+            rayGroup.add(new THREE.Line(beamGeometry, beamMaterial));
+        }
     });
 
     // 5. Draw the final image on the sensor canvas
