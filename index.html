@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -47,12 +47,21 @@
             <span id="wavelength-value" style="min-width: 50px;">532 nm</span>
         </div>
 
-        <!-- Laser Pattern Control (Cross option removed) -->
         <div class="control-row">
             <label for="laser-pattern-select">Laser Pattern:</label>
             <select id="laser-pattern-select">
                 <option value="line" selected>Line</option>
                 <option value="radial">Radial</option>
+            </select>
+        </div>
+        
+        <div class="control-row" id="sensor-type-container" style="display: none;">
+            <label for="sensor-type-select">Sensor Type:</label>
+            <select id="sensor-type-select">
+                <option value="grayscale" selected>Grayscale</option>
+                <option value="bayer">Bayer Filter</option>
+                <!-- NEW: Demosaiced Option -->
+                <option value="demosaiced">Demosaiced</option>
             </select>
         </div>
 
@@ -67,11 +76,11 @@
         <canvas id="pixel-canvas" width="200" height="200"></canvas>
     </div>
 
-    <!-- Libraries (Three.js and OrbitControls) -->
+    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-    <!-- Main application script (as a module) -->
+    <!-- Main application script -->
     <script type="module" src="main.js"></script>
 
 </body>

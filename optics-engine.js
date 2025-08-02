@@ -1,4 +1,4 @@
-// === OPTICS ENGINE - V1.9 (Robust Collimation Calculation) ===
+// === OPTICS ENGINE - V2.2 (Demosaiced Sensor Mode) ===
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -44,8 +44,7 @@ function wavelengthToRGB(wavelength) {
     return new THREE.Color(r * factor, g * factor, b * factor);
 }
 
-
-// --- COMPONENT FACTORIES ---
+// --- COMPONENT FACTORIES (Unchanged) ---
 
 export function createLens(name, position, focalLength, elementGroup) {
     const lensMaterial = new THREE.MeshPhysicalMaterial({ color: 0x22dd22, transparent: true, opacity: 0.75, roughness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.2 });
@@ -146,7 +145,7 @@ export function createDetector(name, position, elementGroup) {
  * @param {object} config - The configuration object.
  */
 export function traceRays(config) {
-    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey } = config;
+    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType } = config;
 
     // 1. Clear previous rays and pixels
     while(rayGroup.children.length > 0){
@@ -156,14 +155,14 @@ export function traceRays(config) {
         if(obj.material) obj.material.dispose();
     }
     if (pixelCtx) {
-        pixelCtx.fillStyle = '#333';
+        pixelCtx.fillStyle = '#000';
         pixelCtx.fillRect(0, 0, pixelCanvas.width, pixelCanvas.height);
     }
 
-    const pixelHits = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(0));
-    let maxHits = 0;
+    const pixelIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
+    let maxIntensity = 0;
 
-    // 2. Generate initial rays based on wavelength and pattern
+    // 2. Generate initial rays
     let initialRays = [];
     const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
     const beamSize = 1.0; 
@@ -192,8 +191,7 @@ export function traceRays(config) {
     });
 
 
-    // 3. Trace each ray through the system
-    const finalRays = [];
+    // 3. Trace each ray and accumulate true color intensities
     initialRays.forEach(ray => {
         let currentRay = ray;
         let pathPoints = [currentRay.origin];
@@ -211,10 +209,13 @@ export function traceRays(config) {
                     const pixelY = Math.floor((-localPoint.y / detectorHeight + 0.5) * pixelGridSize);
 
                     if (pixelX >= 0 && pixelX < pixelGridSize && pixelY >= 0 && pixelY < pixelGridSize) {
-                         pixelHits[pixelY][pixelX]++;
-                         if (pixelHits[pixelY][pixelX] > maxHits) {
-                             maxHits = pixelHits[pixelY][pixelX];
-                         }
+                         const pixel = pixelIntensities[pixelY][pixelX];
+                         const color = wavelengthToRGB(ray.wavelength);
+                         pixel.r += color.r;
+                         pixel.g += color.g;
+                         pixel.b += color.b;
+                         
+                         maxIntensity = Math.max(maxIntensity, pixel.r, pixel.g, pixel.b);
                     }
 
                     pathPoints.push(result.intersection);
@@ -229,7 +230,6 @@ export function traceRays(config) {
 
         if (currentRay) {
             pathPoints.push(currentRay.origin.clone().add(currentRay.direction.clone().multiplyScalar(25)));
-            finalRays.push(currentRay);
         }
 
         if (initialRays.indexOf(ray) % 10 === 0) {
@@ -240,40 +240,55 @@ export function traceRays(config) {
         }
     });
 
-    // 4. Draw the final grayscale image from the accumulated hits
-    if (pixelCtx && maxHits > 0) {
+    // 4. Draw the final image on the sensor canvas
+    if (pixelCtx && maxIntensity > 0) {
         const pixelSize = pixelCanvas.width / pixelGridSize;
         for (let y = 0; y < pixelGridSize; y++) {
             for (let x = 0; x < pixelGridSize; x++) {
-                if (pixelHits[y][x] > 0) {
-                    const intensity = Math.round(255 * (pixelHits[y][x] / maxHits));
-                    pixelCtx.fillStyle = `rgb(${intensity}, ${intensity}, ${intensity})`;
+                const pixel = pixelIntensities[y][x];
+                if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
+                    const r = Math.round(255 * (pixel.r / maxIntensity));
+                    const g = Math.round(255 * (pixel.g / maxIntensity));
+                    const b = Math.round(255 * (pixel.b / maxIntensity));
+
+                    if (sensorType === 'bayer') {
+                        const isTopRow = y % 2 === 0;
+                        const isLeftColumn = x % 2 === 0;
+                        if (isTopRow) {
+                            if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
+                            else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`; // Red
+                        } else {
+                            if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`; // Blue
+                            else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
+                        }
+                    } else if (sensorType === 'demosaiced') {
+                        // --- NEW: Demosaiced Drawing Logic ---
+                        pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    } else { // Grayscale
+                        const gray = Math.round((r + g + b) / 3);
+                        pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
+                    }
                     pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
                 }
             }
         }
     }
     
-    // 5. --- FIX: Robust, Physics-based Collimation Calculation ---
+    // 5. Collimation Calculation
     if (setupKey === 'two-lens-system') {
         const display = document.getElementById('collimation-percent');
-        // First, check if the UI element exists to avoid errors on other setups
         if (display) {
-            // Next, check if the optical elements are correctly loaded for this setup
             if (opticalElements.length === 2 && opticalElements.every(el => el.type === 'thin-lens')) {
                 const sortedElements = [...opticalElements].sort((a, b) => a.mesh.position.x - b.mesh.position.x);
                 const lens1 = sortedElements[0];
                 const lens2 = sortedElements[1];
-
                 const focusPointX = lens1.mesh.position.x + lens1.focalLength;
                 const distanceToSecondLens = lens2.mesh.position.x - focusPointX;
                 const error = Math.abs(distanceToSecondLens - lens2.focalLength);
                 const maxError = 5.0;
                 const percentage = Math.max(0, 100 * (1 - error / maxError));
-                
                 display.textContent = `${percentage.toFixed(1)}%`;
             } else {
-                // If the elements aren't right, show the default a
                 display.textContent = '--%';
             }
         }

@@ -40,10 +40,11 @@ const laserSource = new THREE.Mesh(
 laserSource.position.set(-10, 0, 0);
 scene.add(laserSource);
 
-// Central config for simulation parameters that can be shared
+// Central config for simulation parameters
 const simulationConfig = {
-    wavelength: 'white', // Default to white light
-    laserPattern: 'line' // Default to a line pattern
+    wavelength: 'white',
+    laserPattern: 'line',
+    sensorType: 'grayscale'
 };
 
 // === PIXEL VIEWER STATE ===
@@ -57,6 +58,8 @@ const wavelengthSliderContainer = document.getElementById('wavelength-slider-con
 const wavelengthSlider = document.getElementById('wavelength-slider');
 const wavelengthValue = document.getElementById('wavelength-value');
 const laserPatternSelect = document.getElementById('laser-pattern-select');
+const sensorTypeContainer = document.getElementById('sensor-type-container');
+const sensorTypeSelect = document.getElementById('sensor-type-select');
 
 // === CORE APPLICATION LOGIC ===
 
@@ -69,7 +72,9 @@ function updateSimulation() {
         pixelCanvas,
         pixelGridSize,
         wavelength: simulationConfig.wavelength,
-        laserPattern: simulationConfig.laserPattern
+        laserPattern: simulationConfig.laserPattern,
+        sensorType: simulationConfig.sensorType,
+        setupKey: document.getElementById('setup-select').value
     });
 }
 
@@ -88,11 +93,15 @@ function clearSetup() {
     }
     document.getElementById('setup-controls').innerHTML = '';
     document.getElementById('pixel-viewer-container').style.display = 'none';
+    sensorTypeContainer.style.display = 'none';
     laserSource.position.y = 0;
 }
 
 function switchSetup(setupKey) {
     clearSetup();
+    if (setupKey === 'camera-sensor') {
+        sensorTypeContainer.style.display = 'flex';
+    }
     const setup = setups[setupKey];
     if (setup) {
         setup.init({
@@ -130,6 +139,11 @@ wavelengthSlider.addEventListener('input', (e) => {
 
 laserPatternSelect.addEventListener('change', (e) => {
     simulationConfig.laserPattern = e.target.value;
+    updateSimulation();
+});
+
+sensorTypeSelect.addEventListener('change', (e) => {
+    simulationConfig.sensorType = e.target.value;
     updateSimulation();
 });
 
