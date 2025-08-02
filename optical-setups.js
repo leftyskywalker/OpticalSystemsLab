@@ -1,5 +1,4 @@
-// --- FIX: Added createSphericalMirror to the import list ---
-import { createLens, createMirror, createDetector, createDiffractionGrating, createSphericalMirror } from './optics-engine.js';
+import { createLens, createMirror, createDetector, createDiffractionGrating, createSphericalMirror } from './optics-components.js';
 
 export const setups = {
     'single-lens': {
@@ -41,7 +40,6 @@ export const setups = {
             document.getElementById('mirror-angle').dispatchEvent(new Event('input'));
         }
     },
-    // --- NEW: Spherical Mirror Setup ---
     'spherical-mirror': {
         name: 'Spherical Mirror',
         init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig }) {
@@ -138,5 +136,4 @@ export const setups = {
         }
     }
 };
-
 

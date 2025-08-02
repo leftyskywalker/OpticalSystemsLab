@@ -1,4 +1,4 @@
-import { traceRays } from './optics-engine.js';
+import { traceRays } from './optics-core.js';
 import { setups } from './optical-setups.js';
 
 // === SCENE SETUP ===
@@ -93,14 +93,13 @@ function clearSetup() {
     }
     document.getElementById('setup-controls').innerHTML = '';
     document.getElementById('pixel-viewer-container').style.display = 'none';
-    sensorTypeContainer.style.display = 'none'; // Hide sensor control by default
+    sensorTypeContainer.style.display = 'none';
     laserSource.position.y = 0;
     laserSource.position.z = 0;
 }
 
 function switchSetup(setupKey) {
     clearSetup();
-    // --- CHANGE: Only show the sensor type control for the camera setup ---
     if (setupKey === 'camera-sensor') {
         sensorTypeContainer.style.display = 'flex';
     }
@@ -160,7 +159,7 @@ window.addEventListener('resize', () => {
 function animate() {
     requestAnimationFrame(animate);
 
-    const mirror = elementGroup.children.find(c => c.name === 'mirror1');
+    const mirror = elementGroup.children.find(c => c.name === 'mirror1' || c.name.startsWith('spherical_mirror'));
 
     if (mirror) {
         mirror.visible = false;
