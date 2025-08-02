@@ -1,4 +1,4 @@
-// === OPTICS ENGINE - V1.3 (Grayscale Intensity Sensor) ===
+// === OPTICS ENGINE - V1.9 (Robust Collimation Calculation) ===
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -66,9 +66,13 @@ export function createLens(name, position, focalLength, elementGroup) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const intersectPointLocal = this.mesh.worldToLocal(intersectPoint.clone());
                 const distFromCenter = Math.sqrt(intersectPointLocal.y**2 + intersectPointLocal.z**2);
+                
                 if (distFromCenter <= lensGeometry.parameters.radiusTop) {
                     const y = intersectPoint.y;
-                    const newDir = new THREE.Vector3(ray.direction.x, -y / this.focalLength + ray.direction.y, ray.direction.z).normalize();
+                    const z = intersectPoint.z;
+                    const newDirY = -y / this.focalLength + ray.direction.y;
+                    const newDirZ = -z / this.focalLength + ray.direction.z;
+                    const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
                     return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
                 }
             }
@@ -142,7 +146,7 @@ export function createDetector(name, position, elementGroup) {
  * @param {object} config - The configuration object.
  */
 export function traceRays(config) {
-    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength } = config;
+    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey } = config;
 
     // 1. Clear previous rays and pixels
     while(rayGroup.children.length > 0){
@@ -156,31 +160,40 @@ export function traceRays(config) {
         pixelCtx.fillRect(0, 0, pixelCanvas.width, pixelCanvas.height);
     }
 
-    // --- CHANGE: Setup pixel hit grid for intensity calculation ---
     const pixelHits = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(0));
     let maxHits = 0;
 
-    // 2. Generate initial rays based on wavelength setting
+    // 2. Generate initial rays based on wavelength and pattern
     let initialRays = [];
-    if (wavelength === 'white') {
-        const wavelengths = [450, 532, 650];
-        wavelengths.forEach(wl => {
-            for (let i = 0; i < 100; i++) { // More rays for a better image
-                const yOffset = -1.0 + 2.0 * (i / 99);
-                initialRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, 0), new THREE.Vector3(1, 0, 0), wl));
-            }
-        });
-    } else {
-        const numRays = 300; // More rays for a better image
-        const beamHeight = 2.0;
-        for (let i = 0; i < numRays; i++) {
-            const yOffset = -beamHeight / 2 + (beamHeight / (numRays - 1)) * i;
-            initialRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, 0), new THREE.Vector3(1, 0, 0), wavelength));
+    const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
+    const beamSize = 1.0; 
+
+    wavelengths.forEach(wl => {
+        let patternRays = [];
+        const parallelDirection = new THREE.Vector3(1, 0, 0);
+        switch (laserPattern) {
+            case 'line':
+                for (let i = 0; i < 100; i++) {
+                    const yOffset = -beamSize / 2 + beamSize * (i / 99);
+                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, 0), parallelDirection, wl));
+                }
+                break;
+            case 'radial':
+                 for (let i = 0; i < 100; i++) {
+                    const angle = (i / 99) * 2 * Math.PI;
+                    const yOffset = Math.sin(angle) * beamSize / 2;
+                    const zOffset = Math.cos(angle) * beamSize / 2;
+                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, zOffset);
+                    patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                }
+                break;
         }
-    }
+        initialRays.push(...patternRays);
+    });
 
 
     // 3. Trace each ray through the system
+    const finalRays = [];
     initialRays.forEach(ray => {
         let currentRay = ray;
         let pathPoints = [currentRay.origin];
@@ -197,7 +210,6 @@ export function traceRays(config) {
                     const pixelX = Math.floor((localPoint.x / detectorHeight + 0.5) * pixelGridSize);
                     const pixelY = Math.floor((-localPoint.y / detectorHeight + 0.5) * pixelGridSize);
 
-                    // --- CHANGE: Accumulate hits instead of drawing immediately ---
                     if (pixelX >= 0 && pixelX < pixelGridSize && pixelY >= 0 && pixelY < pixelGridSize) {
                          pixelHits[pixelY][pixelX]++;
                          if (pixelHits[pixelY][pixelX] > maxHits) {
@@ -217,9 +229,9 @@ export function traceRays(config) {
 
         if (currentRay) {
             pathPoints.push(currentRay.origin.clone().add(currentRay.direction.clone().multiplyScalar(25)));
+            finalRays.push(currentRay);
         }
 
-        // Only draw a subset of rays for performance and clarity
         if (initialRays.indexOf(ray) % 10 === 0) {
             const beamMaterial = new THREE.LineBasicMaterial({ color: wavelengthToRGB(ray.wavelength), transparent: true, opacity: 0.5 });
             const beamGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
@@ -228,7 +240,7 @@ export function traceRays(config) {
         }
     });
 
-    // --- CHANGE: Draw the final grayscale image from the accumulated hits ---
+    // 4. Draw the final grayscale image from the accumulated hits
     if (pixelCtx && maxHits > 0) {
         const pixelSize = pixelCanvas.width / pixelGridSize;
         for (let y = 0; y < pixelGridSize; y++) {
@@ -238,6 +250,31 @@ export function traceRays(config) {
                     pixelCtx.fillStyle = `rgb(${intensity}, ${intensity}, ${intensity})`;
                     pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
                 }
+            }
+        }
+    }
+    
+    // 5. --- FIX: Robust, Physics-based Collimation Calculation ---
+    if (setupKey === 'two-lens-system') {
+        const display = document.getElementById('collimation-percent');
+        // First, check if the UI element exists to avoid errors on other setups
+        if (display) {
+            // Next, check if the optical elements are correctly loaded for this setup
+            if (opticalElements.length === 2 && opticalElements.every(el => el.type === 'thin-lens')) {
+                const sortedElements = [...opticalElements].sort((a, b) => a.mesh.position.x - b.mesh.position.x);
+                const lens1 = sortedElements[0];
+                const lens2 = sortedElements[1];
+
+                const focusPointX = lens1.mesh.position.x + lens1.focalLength;
+                const distanceToSecondLens = lens2.mesh.position.x - focusPointX;
+                const error = Math.abs(distanceToSecondLens - lens2.focalLength);
+                const maxError = 5.0;
+                const percentage = Math.max(0, 100 * (1 - error / maxError));
+                
+                display.textContent = `${percentage.toFixed(1)}%`;
+            } else {
+                // If the elements aren't right, show the default a
+                display.textContent = '--%';
             }
         }
     }

@@ -42,13 +42,13 @@ scene.add(laserSource);
 
 // Central config for simulation parameters that can be shared
 const simulationConfig = {
-    wavelength: 'white' // Default to white light
+    wavelength: 'white', // Default to white light
+    laserPattern: 'line' // Default to a line pattern
 };
 
 // === PIXEL VIEWER STATE ===
 const pixelCanvas = document.getElementById('pixel-canvas');
 const pixelCtx = pixelCanvas.getContext('2d');
-// --- CHANGE: Increased pixel grid resolution ---
 const pixelGridSize = 50;
 
 // === UI ELEMENT REFERENCES ===
@@ -56,6 +56,7 @@ const wavelengthSelect = document.getElementById('wavelength-select');
 const wavelengthSliderContainer = document.getElementById('wavelength-slider-container');
 const wavelengthSlider = document.getElementById('wavelength-slider');
 const wavelengthValue = document.getElementById('wavelength-value');
+const laserPatternSelect = document.getElementById('laser-pattern-select');
 
 // === CORE APPLICATION LOGIC ===
 
@@ -67,7 +68,8 @@ function updateSimulation() {
         pixelCtx,
         pixelCanvas,
         pixelGridSize,
-        wavelength: simulationConfig.wavelength
+        wavelength: simulationConfig.wavelength,
+        laserPattern: simulationConfig.laserPattern
     });
 }
 
@@ -99,7 +101,7 @@ function switchSetup(setupKey) {
             traceRaysCallback: updateSimulation,
             laserSource,
             envMap: cubeCamera.renderTarget.texture,
-            simulationConfig // Pass the shared config
+            simulationConfig
         });
     }
     updateSimulation();
@@ -123,6 +125,11 @@ wavelengthSlider.addEventListener('input', (e) => {
     const wl = parseInt(e.target.value);
     simulationConfig.wavelength = wl;
     wavelengthValue.textContent = `${wl} nm`;
+    updateSimulation();
+});
+
+laserPatternSelect.addEventListener('change', (e) => {
+    simulationConfig.laserPattern = e.target.value;
     updateSimulation();
 });
 
@@ -154,7 +161,6 @@ function animate() {
 }
 
 // --- START THE APP ---
-// Initialize UI state
 wavelengthSelect.dispatchEvent(new Event('change'));
 switchSetup('single-lens');
 animate();
