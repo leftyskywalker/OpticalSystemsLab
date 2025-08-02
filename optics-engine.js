@@ -157,7 +157,11 @@ export function createMirror(name, position, angle, envMap, elementGroup) {
  */
 export function createSphericalMirror(name, position, radius, envMap, elementGroup) {
     const mirrorMaterial = new THREE.MeshStandardMaterial({
-        color: 0xeeeeee, metalness: 1.0, roughness: 0.0, envMap: envMap, side: THREE.DoubleSide
+        color: 0x808080, // Grey color
+        metalness: 0.1,  // Not very metallic
+        roughness: 0.8,   // Matte surface
+        // --- FIX: Render both sides of the mirror ---
+        side: THREE.DoubleSide
     });
     const points = [];
     const segments = 32;
@@ -165,7 +169,6 @@ export function createSphericalMirror(name, position, radius, envMap, elementGro
     for (let i = 0; i <= segments; i++) {
         const y = (i / segments) * aperture;
         const x_offset = Math.abs(radius) - Math.sqrt(radius*radius - y*y);
-        // --- FIX: Use positive x_offset to create a concave shape ---
         points.push(new THREE.Vector2(y, x_offset));
     }
     const mirrorGeometry = new THREE.LatheGeometry(points, 32);
@@ -178,12 +181,10 @@ export function createSphericalMirror(name, position, radius, envMap, elementGro
     const element = {
         mesh: mesh, type: 'spherical-mirror', radius: radius,
         processRay: function(ray) {
-            // The sphere's center is at the mesh's position plus the radius along its local x-axis.
             const sphereCenter = new THREE.Vector3(this.mesh.position.x + this.radius, this.mesh.position.y, this.mesh.position.z);
             const intersectPoint = getRaySphereIntersection(ray, sphereCenter, Math.abs(this.radius));
             
             if (intersectPoint) {
-                // --- FIX: Check if the intersection is within the mirror's visual aperture ---
                 const localIntersectPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 const distFromCenter = Math.sqrt(localIntersectPoint.y**2 + localIntersectPoint.z**2);
                 if (distFromCenter > aperture) return null;
@@ -457,3 +458,4 @@ export function traceRays(config) {
         }
     }
 }
+
