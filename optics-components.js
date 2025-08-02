@@ -1,4 +1,4 @@
-// === OPTICS COMPONENTS - V1.0 ===
+// === OPTICS COMPONENTS - V1.7 (Corrected Spherical Mirror Focusing) ===
 // Contains the factory functions for creating optical elements.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
@@ -73,40 +73,45 @@ export function createMirror(name, position, angle, envMap, elementGroup) {
 
 export function createSphericalMirror(name, position, radius, envMap, elementGroup) {
     const mirrorMaterial = new THREE.MeshStandardMaterial({
-        color: 0x808080,
-        metalness: 0.1,
-        roughness: 0.8,
-        side: THREE.DoubleSide
+        color: 0xeeeeee, metalness: 1.0, roughness: 0.0, envMap: envMap
     });
-    const points = [];
-    const segments = 32;
-    const aperture = 2.5;
-    for (let i = 0; i <= segments; i++) {
-        const y = (i / segments) * aperture;
-        const x_offset = Math.abs(radius) - Math.sqrt(radius*radius - y*y);
-        points.push(new THREE.Vector2(y, x_offset));
-    }
-    const mirrorGeometry = new THREE.LatheGeometry(points, 32);
+    const mirrorGeometry = new THREE.PlaneGeometry(5, 5);
     const mesh = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
     mesh.name = name;
     mesh.position.set(position.x, position.y, position.z);
-    mesh.rotation.z = Math.PI / 2;
+    mesh.rotation.y = -Math.PI / 2; 
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mirrorGeometry), new THREE.LineBasicMaterial({ color: 0x333333 })));
     elementGroup.add(mesh);
 
     const element = {
         mesh: mesh, type: 'spherical-mirror', radius: radius,
         processRay: function(ray) {
-            const sphereCenter = new THREE.Vector3(this.mesh.position.x + this.radius, this.mesh.position.y, this.mesh.position.z);
-            const intersectPoint = getRaySphereIntersection(ray, sphereCenter, Math.abs(this.radius));
-            
-            if (intersectPoint) {
-                const localIntersectPoint = this.mesh.worldToLocal(intersectPoint.clone());
-                const distFromCenter = Math.sqrt(localIntersectPoint.y**2 + localIntersectPoint.z**2);
-                if (distFromCenter > aperture) return null;
+            const plane = new THREE.Plane();
+            const normal = new THREE.Vector3(1, 0, 0); // Normal points towards the laser
+            plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
+            const intersectPoint = new THREE.Vector3();
 
-                const normal = intersectPoint.clone().sub(sphereCenter).normalize();
-                const reflectedDir = ray.direction.clone().reflect(normal);
-                return { newRay: new Ray(intersectPoint, reflectedDir, ray.wavelength) };
+            if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
+                if (ray.direction.dot(intersectPoint.clone().sub(ray.origin)) < 0) return null;
+                const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
+
+                if (Math.abs(localPoint.x) <= mirrorGeometry.parameters.width / 2 && Math.abs(localPoint.y) <= mirrorGeometry.parameters.height / 2) {
+                    
+                    // --- FIX: A concave mirror (negative R) should have a positive focal length for this formula. ---
+                    const focalLength = -this.radius / 2;
+                    
+                    const y = intersectPoint.y - this.mesh.position.y;
+                    const z = intersectPoint.z - this.mesh.position.z;
+                    
+                    const reflectedDir = ray.direction.clone().reflect(normal);
+                    const newDir = new THREE.Vector3(
+                        reflectedDir.x,
+                        reflectedDir.y - y / focalLength,
+                        reflectedDir.z - z / focalLength
+                    ).normalize();
+
+                    return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
+                }
             }
             return null;
         }
@@ -182,4 +187,5 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
     };
     return { mesh, element };
 }
+
 

@@ -111,7 +111,7 @@ export const setups = {
             document.getElementById('laser-y').addEventListener('input', (e) => { laserSource.position.y = parseFloat(e.target.value); document.getElementById('laser-y-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
             document.getElementById('laser-z').addEventListener('input', (e) => { laserSource.position.z = parseFloat(e.target.value); document.getElementById('laser-z-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
             document.getElementById('lens-x').addEventListener('input', (e) => { lensData.mesh.position.x = parseFloat(e.target.value); document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
-            document.getElementById('focal-length').addEventListener('input', (e) => { lensData.element.focalLength = parseFloat(e.target.value); document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            document.getElementById('lens-focal').addEventListener('input', (e) => { lensData.element.focalLength = parseFloat(e.target.value); document.getElementById('lens-focal-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
         }
     },
     'diffraction-grating': {
@@ -136,4 +136,5 @@ export const setups = {
         }
     }
 };
+
 
