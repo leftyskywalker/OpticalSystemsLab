@@ -1,4 +1,4 @@
-// === OPTICS ENGINE - V4.0 (Spherical Mirror) ===
+// === OPTICS ENGINE - V4.0 (Corrected Spherical Mirror) ===
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -58,12 +58,12 @@ function getFilterResponse(wavelength, filterType) {
 }
 
 /**
- * --- NEW: Helper function for ray-sphere intersection ---
+ * Helper function for ray-sphere intersection.
  */
 function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
     const L = sphereCenter.clone().sub(ray.origin);
     const tca = L.dot(ray.direction);
-    if (tca < 0 && sphereRadius < 0) return null; // Convex mirror behind ray
+    if (tca < 0 && sphereRadius < 0) return null;
 
     const d2 = L.dot(L) - tca * tca;
     const radius2 = sphereRadius * sphereRadius;
@@ -73,7 +73,7 @@ function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
     let t0 = tca - thc;
     let t1 = tca + thc;
 
-    if (t0 > t1) [t0, t1] = [t1, t0]; // Swap
+    if (t0 > t1) [t0, t1] = [t1, t0];
 
     if (t0 > 1e-6) return ray.origin.clone().add(ray.direction.clone().multiplyScalar(t0));
     if (t1 > 1e-6) return ray.origin.clone().add(ray.direction.clone().multiplyScalar(t1));
@@ -153,20 +153,20 @@ export function createMirror(name, position, angle, envMap, elementGroup) {
 }
 
 /**
- * --- NEW: Creates a spherical mirror component. ---
+ * --- UPDATED: Creates a corrected spherical mirror component. ---
  */
 export function createSphericalMirror(name, position, radius, envMap, elementGroup) {
     const mirrorMaterial = new THREE.MeshStandardMaterial({
         color: 0xeeeeee, metalness: 1.0, roughness: 0.0, envMap: envMap, side: THREE.DoubleSide
     });
-    // Use LatheGeometry to create a visually curved surface
     const points = [];
     const segments = 32;
     const aperture = 2.5;
     for (let i = 0; i <= segments; i++) {
         const y = (i / segments) * aperture;
         const x_offset = Math.abs(radius) - Math.sqrt(radius*radius - y*y);
-        points.push(new THREE.Vector2(y, -x_offset));
+        // --- FIX: Use positive x_offset to create a concave shape ---
+        points.push(new THREE.Vector2(y, x_offset));
     }
     const mirrorGeometry = new THREE.LatheGeometry(points, 32);
     const mesh = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
@@ -178,12 +178,15 @@ export function createSphericalMirror(name, position, radius, envMap, elementGro
     const element = {
         mesh: mesh, type: 'spherical-mirror', radius: radius,
         processRay: function(ray) {
+            // The sphere's center is at the mesh's position plus the radius along its local x-axis.
             const sphereCenter = new THREE.Vector3(this.mesh.position.x + this.radius, this.mesh.position.y, this.mesh.position.z);
-            const intersectPoint = getRaySphereIntersection(ray, sphereCenter, this.radius);
+            const intersectPoint = getRaySphereIntersection(ray, sphereCenter, Math.abs(this.radius));
             
             if (intersectPoint) {
-                const distToCenter = intersectPoint.distanceTo(new THREE.Vector3(this.mesh.position.x, intersectPoint.y, intersectPoint.z));
-                if (distToCenter > aperture) return null; // Missed the mirror aperture
+                // --- FIX: Check if the intersection is within the mirror's visual aperture ---
+                const localIntersectPoint = this.mesh.worldToLocal(intersectPoint.clone());
+                const distFromCenter = Math.sqrt(localIntersectPoint.y**2 + localIntersectPoint.z**2);
+                if (distFromCenter > aperture) return null;
 
                 const normal = intersectPoint.clone().sub(sphereCenter).normalize();
                 const reflectedDir = ray.direction.clone().reflect(normal);
