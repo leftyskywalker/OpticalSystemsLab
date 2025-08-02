@@ -1,4 +1,4 @@
-// === OPTICS ENGINE - V2.2 (Demosaiced Sensor Mode) ===
+// === OPTICS ENGINE - V2.3 (Laser Position Fix) ===
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -44,7 +44,8 @@ function wavelengthToRGB(wavelength) {
     return new THREE.Color(r * factor, g * factor, b * factor);
 }
 
-// --- COMPONENT FACTORIES (Unchanged) ---
+
+// --- COMPONENT FACTORIES ---
 
 export function createLens(name, position, focalLength, elementGroup) {
     const lensMaterial = new THREE.MeshPhysicalMaterial({ color: 0x22dd22, transparent: true, opacity: 0.75, roughness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.2 });
@@ -174,7 +175,8 @@ export function traceRays(config) {
             case 'line':
                 for (let i = 0; i < 100; i++) {
                     const yOffset = -beamSize / 2 + beamSize * (i / 99);
-                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, 0), parallelDirection, wl));
+                    // --- FIX: Use laserSource.position.z for the horizontal position ---
+                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
                 }
                 break;
             case 'radial':
@@ -182,7 +184,8 @@ export function traceRays(config) {
                     const angle = (i / 99) * 2 * Math.PI;
                     const yOffset = Math.sin(angle) * beamSize / 2;
                     const zOffset = Math.cos(angle) * beamSize / 2;
-                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, zOffset);
+                    // --- FIX: Use laserSource.position for both y and z offsets ---
+                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
                     patternRays.push(new Ray(startPoint, parallelDirection, wl));
                 }
                 break;
@@ -191,7 +194,7 @@ export function traceRays(config) {
     });
 
 
-    // 3. Trace each ray and accumulate true color intensities
+    // 3. Trace each ray and accumulate intensities
     initialRays.forEach(ray => {
         let currentRay = ray;
         let pathPoints = [currentRay.origin];
@@ -262,7 +265,6 @@ export function traceRays(config) {
                             else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
                         }
                     } else if (sensorType === 'demosaiced') {
-                        // --- NEW: Demosaiced Drawing Logic ---
                         pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                     } else { // Grayscale
                         const gray = Math.round((r + g + b) / 3);
