@@ -10,7 +10,7 @@
         #controls-container { position: absolute; top: 10px; left: 10px; padding: 10px; background: rgba(255,255,255,0.7); border: 1px solid #ccc; border-radius: 8px; min-width: 320px; z-index: 10; }
         .control-row { margin-bottom: 8px; display: flex; align-items: center; }
         label { margin-right: 10px; min-width: 140px;}
-        input[type="range"] { vertical-align: middle; width: 100px;}
+        input[type="range"], input[type="checkbox"] { vertical-align: middle; width: 100px;}
         hr { border: 0; border-top: 1px solid #ccc; margin: 12px 0; }
         .setup-title { font-weight: bold; margin-bottom: 5px; }
         #pixel-viewer-container { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 10px; background: rgba(0,0,0,0.7); border-radius: 8px; text-align: center; z-index: 10; }
@@ -72,6 +72,11 @@
                 <option value="bayer">Bayer Filter</option>
                 <option value="demosaiced">True Color</option>
             </select>
+        </div>
+        
+        <div class="control-row">
+            <label for="bg-toggle">Black Background:</label>
+            <input type="checkbox" id="bg-toggle" style="width: auto;">
         </div>
 
         <hr>

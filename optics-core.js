@@ -86,7 +86,7 @@ export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
  * --- Unified Ray Tracing Engine ---
  */
 export function traceRays(config) {
-    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100 } = config;
+    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white' } = config;
 
     // 1. Clear previous state
     while(rayGroup.children.length > 0){
@@ -218,6 +218,9 @@ export function traceRays(config) {
         
         if (initialRays.length > 20 && index % 5 !== 0) return;
         
+        // Define the color for white light based on the background
+        const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
+
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating');
             if (grating) {
@@ -229,17 +232,17 @@ export function traceRays(config) {
                 const postSplitPath = finalPath.path.slice(splitIndex);
 
                 if (preSplitPath.length > 1) {
-                    const whiteMaterial = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 });
+                    const whiteMaterial = new THREE.LineBasicMaterial({ color: whiteLightColor, transparent: true, opacity: 0.5 });
                     rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), whiteMaterial));
                 }
                 if (postSplitPath.length > 1) {
-                    const color = finalPath.ray.diffractionOrder === 0 ? 0x000000 : wavelengthToRGB(finalPath.ray.wavelength);
+                    const color = finalPath.ray.diffractionOrder === 0 ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
                     const colorMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
                     rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), colorMaterial));
                 }
             }
         } else {
-            const color = (wavelength === 'white') ? 0x000000 : wavelengthToRGB(finalPath.ray.wavelength);
+            const color = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
             const beamMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
             const beamGeometry = new THREE.BufferGeometry().setFromPoints(finalPath.path);
             rayGroup.add(new THREE.Line(beamGeometry, beamMaterial));
@@ -255,10 +258,9 @@ export function traceRays(config) {
                     if (maxTrueColorIntensity > 0) {
                         const pixel = trueColorIntensities[y][x];
                         if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
-                            // NEW LOGIC: If the source is white light, just draw white.
                             if (wavelength === 'white') {
                                 pixelCtx.fillStyle = 'white';
-                            } else { // Otherwise, draw the actual color of the single wavelength.
+                            } else {
                                 const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
                                 const g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
                                 const b = Math.round(255 * (pixel.b / maxTrueColorIntensity));

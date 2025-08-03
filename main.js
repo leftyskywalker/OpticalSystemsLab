@@ -45,7 +45,8 @@ const simulationConfig = {
     wavelength: 'white',
     laserPattern: 'line',
     sensorType: 'grayscale',
-    rayCount: 100
+    rayCount: 100,
+    backgroundColor: 'white' // Added for background state
 };
 
 // === PIXEL VIEWER STATE ===
@@ -63,13 +64,11 @@ const sensorTypeContainer = document.getElementById('sensor-type-container');
 const sensorTypeSelect = document.getElementById('sensor-type-select');
 const rayCountSlider = document.getElementById('ray-count-slider');
 const rayCountValue = document.getElementById('ray-count-value');
+const backgroundToggle = document.getElementById('bg-toggle'); // Reference for new checkbox
 
 // === CORE APPLICATION LOGIC ===
 
 function updateSimulation() {
-    // BUG FIX: Force an update of all object matrices before ray tracing.
-    // This ensures that the physics engine has the correct, up-to-date
-    // position and rotation data for all elements on the initial load.
     scene.updateMatrixWorld(true);
 
     traceRays({
@@ -83,6 +82,7 @@ function updateSimulation() {
         laserPattern: simulationConfig.laserPattern,
         sensorType: simulationConfig.sensorType,
         rayCount: simulationConfig.rayCount,
+        backgroundColor: simulationConfig.backgroundColor, // Pass color state to engine
         setupKey: document.getElementById('setup-select').value
     });
 }
@@ -161,6 +161,13 @@ rayCountSlider.addEventListener('input', (e) => {
 
 sensorTypeSelect.addEventListener('change', (e) => {
     simulationConfig.sensorType = e.target.value;
+    updateSimulation();
+});
+
+// Listener for the background toggle
+backgroundToggle.addEventListener('change', (e) => {
+    simulationConfig.backgroundColor = e.target.checked ? 'black' : 'white';
+    scene.background.set(simulationConfig.backgroundColor === 'black' ? 0x000000 : 0xffffff);
     updateSimulation();
 });
 
