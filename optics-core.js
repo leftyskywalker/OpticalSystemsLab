@@ -86,7 +86,8 @@ export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
  * --- Unified Ray Tracing Engine ---
  */
 export function traceRays(config) {
-    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType } = config;
+    // NEW: Destructure rayCount from the config object, with a default value
+    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100 } = config;
 
     // 1. Clear previous state
     while(rayGroup.children.length > 0){
@@ -115,14 +116,17 @@ export function traceRays(config) {
         const parallelDirection = new THREE.Vector3(1, 0, 0);
         switch (laserPattern) {
             case 'line':
-                for (let i = 0; i < 100; i++) {
-                    const yOffset = -beamSize / 2 + beamSize * (i / 99);
+                // NEW: Use rayCount to determine the number of rays generated
+                for (let i = 0; i < rayCount; i++) {
+                    // Handle case where rayCount is 1 to avoid division by zero
+                    const yOffset = (rayCount === 1) ? 0 : -beamSize / 2 + beamSize * (i / (rayCount - 1));
                     patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
                 }
                 break;
             case 'radial':
-                 for (let i = 0; i < 100; i++) {
-                    const angle = (i / 99) * 2 * Math.PI;
+                 // NEW: Use rayCount to determine the number of rays generated
+                 for (let i = 0; i < rayCount; i++) {
+                    const angle = (i / rayCount) * 2 * Math.PI;
                     const yOffset = Math.sin(angle) * beamSize / 2;
                     const zOffset = Math.cos(angle) * beamSize / 2;
                     const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);

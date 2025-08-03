@@ -44,7 +44,8 @@ scene.add(laserSource);
 const simulationConfig = {
     wavelength: 'white',
     laserPattern: 'line',
-    sensorType: 'grayscale'
+    sensorType: 'grayscale',
+    rayCount: 100 // NEW: Added rayCount to config
 };
 
 // === PIXEL VIEWER STATE ===
@@ -60,6 +61,9 @@ const wavelengthValue = document.getElementById('wavelength-value');
 const laserPatternSelect = document.getElementById('laser-pattern-select');
 const sensorTypeContainer = document.getElementById('sensor-type-container');
 const sensorTypeSelect = document.getElementById('sensor-type-select');
+// NEW: References for ray count controls
+const rayCountSlider = document.getElementById('ray-count-slider');
+const rayCountValue = document.getElementById('ray-count-value');
 
 // === CORE APPLICATION LOGIC ===
 
@@ -74,6 +78,7 @@ function updateSimulation() {
         wavelength: simulationConfig.wavelength,
         laserPattern: simulationConfig.laserPattern,
         sensorType: simulationConfig.sensorType,
+        rayCount: simulationConfig.rayCount, // NEW: Pass rayCount to the tracer
         setupKey: document.getElementById('setup-select').value
     });
 }
@@ -140,6 +145,14 @@ wavelengthSlider.addEventListener('input', (e) => {
 
 laserPatternSelect.addEventListener('change', (e) => {
     simulationConfig.laserPattern = e.target.value;
+    updateSimulation();
+});
+
+// NEW: Event listener for the ray count slider
+rayCountSlider.addEventListener('input', (e) => {
+    const count = parseInt(e.target.value);
+    simulationConfig.rayCount = count;
+    rayCountValue.textContent = count;
     updateSimulation();
 });
 

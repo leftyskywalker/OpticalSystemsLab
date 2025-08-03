@@ -22,14 +22,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- UI for controlling optical components -->
     <div id="controls-container">
         <div class="control-row">
             <label for="setup-select">Optical Setup:</label>
             <select id="setup-select">
                 <option value="single-lens" selected>Single Convex Lens</option>
                 <option value="flat-mirror">Flat Mirror</option>
-                <!-- NEW: Spherical Mirror Option -->
                 <option value="spherical-mirror">Spherical Mirror</option>
                 <option value="two-lens-system">Two Lens System</option>
                 <option value="camera-sensor">Camera Sensor</option>
@@ -57,6 +55,12 @@
                 <option value="radial">Radial</option>
             </select>
         </div>
+
+        <div class="control-row">
+            <label for="ray-count-slider">Number of Rays:</label>
+            <input type="range" id="ray-count-slider" min="10" max="500" value="100" step="10">
+            <span id="ray-count-value" style="min-width: 50px;">100</span>
+        </div>
         
         <div class="control-row" id="sensor-type-container" style="display: none;">
             <label for="sensor-type-select">Sensor Type:</label>
@@ -68,21 +72,17 @@
         </div>
 
         <hr>
-        <!-- Controls for the selected setup will be dynamically inserted here -->
         <div id="setup-controls"></div>
     </div>
 
-    <!-- Pixel Array Viewer -->
     <div id="pixel-viewer-container" style="display: none;">
         <label>Pixel Sensor Array</label>
         <canvas id="pixel-canvas" width="200" height="200"></canvas>
     </div>
 
-    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-    <!-- Main application script -->
     <script type="module" src="main.js"></script>
 
 </body>

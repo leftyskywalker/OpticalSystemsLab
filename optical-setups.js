@@ -43,12 +43,10 @@ export const setups = {
     'spherical-mirror': {
             name: 'Spherical Mirror',
             init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig }) {
-                // CHANGE 1: Pass an initial angle of 0 to the creator function.
                 const mirrorData = createSphericalMirror('spherical_mirror_1', {x: 5, y: 0, z: 0}, -10, 0, envMap, elementGroup);
                 opticalElements.push(mirrorData.element);
 
                 const controlsDiv = document.getElementById('setup-controls');
-                // CHANGE 2: Add an angle slider to the controls.
                 controlsDiv.innerHTML = `
                     <div class="control-row"><label for="mirror-x">Mirror Position (X):</label><input type="range" id="mirror-x" min="-5" max="8" value="5" step="0.1"><span id="mirror-x-value">5.0</span></div>
                     <div class="control-row"><label for="mirror-radius">Radius of Curvature:</label><input type="range" id="mirror-radius" min="-20" max="-5" value="-10" step="0.1"><span id="mirror-radius-value">-10.0</span></div>
@@ -65,10 +63,8 @@ export const setups = {
                     traceRaysCallback();
                 });
                 
-                // CHANGE 3: Add the event listener for the new angle slider.
                 document.getElementById('mirror-angle').addEventListener('input', (e) => {
                     const angle = parseFloat(e.target.value);
-                    // The creator function sets a base rotation of -PI/2. We add the user's angle to it.
                     mirrorData.mesh.rotation.y = -Math.PI / 2 - angle * (Math.PI / 180);
                     document.getElementById('mirror-angle-value').innerHTML = `${angle}&deg;`;
                     traceRaysCallback();
@@ -123,7 +119,13 @@ export const setups = {
             document.getElementById('laser-y').addEventListener('input', (e) => { laserSource.position.y = parseFloat(e.target.value); document.getElementById('laser-y-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
             document.getElementById('laser-z').addEventListener('input', (e) => { laserSource.position.z = parseFloat(e.target.value); document.getElementById('laser-z-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
             document.getElementById('lens-x').addEventListener('input', (e) => { lensData.mesh.position.x = parseFloat(e.target.value); document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
-            document.getElementById('lens-focal').addEventListener('input', (e) => { lensData.element.focalLength = parseFloat(e.target.value); document.getElementById('lens-focal-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
+            
+            // BUG FIX: Changed 'lens-focal' to 'focal-length' to match the input element's ID.
+            document.getElementById('focal-length').addEventListener('input', (e) => { 
+                lensData.element.focalLength = parseFloat(e.target.value); 
+                document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1); 
+                traceRaysCallback(); 
+            });
         }
     },
     'diffraction-grating': {
@@ -148,5 +150,3 @@ export const setups = {
         }
     }
 };
-
-
