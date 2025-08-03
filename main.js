@@ -40,7 +40,7 @@ const laserSource = new THREE.Mesh(
 laserSource.position.set(-10, 0, 0);
 scene.add(laserSource);
 
-// --- NEW: Color Chart Object ---
+// --- Color Chart Object ---
 function createColorChartTexture() {
     const canvas = document.createElement('canvas');
     const size = 256;
@@ -74,6 +74,7 @@ const colorChart = new THREE.Mesh(
     new THREE.MeshBasicMaterial({ map: createColorChartTexture() })
 );
 colorChart.position.set(-10, 0, 0);
+colorChart.rotation.y = Math.PI / 2;
 colorChart.visible = false;
 scene.add(colorChart);
 
@@ -109,19 +110,13 @@ const backgroundToggle = document.getElementById('bg-toggle');
 // === CORE APPLICATION LOGIC ===
 
 function updateSimulation() {
-    const setupKey = document.getElementById('setup-select').value;
-    // Don't trace rays for the color chart setup yet
-    if (setupKey === 'camera-color-chart') {
-        while(rayGroup.children.length > 0){ rayGroup.remove(rayGroup.children[0]); }
-        return;
-    }
-
     scene.updateMatrixWorld(true);
 
     traceRays({
         rayGroup,
         opticalElements,
         laserSource,
+        colorChart, // Pass the color chart to the tracer
         pixelCtx,
         pixelCanvas,
         pixelGridSize,
@@ -130,7 +125,7 @@ function updateSimulation() {
         sensorType: simulationConfig.sensorType,
         rayCount: simulationConfig.rayCount,
         backgroundColor: simulationConfig.backgroundColor,
-        setupKey: setupKey
+        setupKey: document.getElementById('setup-select').value
     });
 }
 
@@ -264,3 +259,5 @@ function animate() {
 wavelengthSelect.dispatchEvent(new Event('change'));
 switchSetup('single-lens');
 animate();
+
+

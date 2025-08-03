@@ -211,6 +211,9 @@ export const setups = {
                 <div class="setup-title">Lens</div>
                 <div class="control-row"><label for="lens-x">Position (X):</label><input type="range" id="lens-x" min="-5" max="5" value="0" step="0.1"><span id="lens-x-value">0.0 cm</span></div>
                 <div class="control-row"><label for="focal-length">Focal Length:</label><input type="range" id="focal-length" min="1" max="10" value="5" step="0.1"><span id="focal-length-value">5.0 cm</span></div>
+                <hr>
+                <div class="setup-title">Detector</div>
+                <div class="control-row"><label for="detector-x">Position (X):</label><input type="range" id="detector-x" min="1" max="15" value="8" step="0.1"><span id="detector-x-value">8.0 cm</span></div>
             `;
 
             document.getElementById('laser-y').addEventListener('input', (e) => { 
@@ -233,6 +236,11 @@ export const setups = {
                 document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
+            document.getElementById('detector-x').addEventListener('input', (e) => { 
+                detectorData.mesh.position.x = parseFloat(e.target.value); 
+                document.getElementById('detector-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
+                traceRaysCallback(); 
+            });
         }
     },
     'camera-color-chart': {
@@ -249,6 +257,9 @@ export const setups = {
                 <div class="setup-title">Lens</div>
                 <div class="control-row"><label for="lens-x">Position (X):</label><input type="range" id="lens-x" min="-5" max="5" value="0" step="0.1"><span id="lens-x-value">0.0 cm</span></div>
                 <div class="control-row"><label for="focal-length">Focal Length:</label><input type="range" id="focal-length" min="1" max="10" value="5" step="0.1"><span id="focal-length-value">5.0 cm</span></div>
+                <hr>
+                <div class="setup-title">Detector</div>
+                <div class="control-row"><label for="detector-x">Position (X):</label><input type="range" id="detector-x" min="1" max="15" value="8" step="0.1"><span id="detector-x-value">8.0 cm</span></div>
             `;
 
             document.getElementById('lens-x').addEventListener('input', (e) => { 
@@ -259,6 +270,11 @@ export const setups = {
             document.getElementById('focal-length').addEventListener('input', (e) => { 
                 lensData.element.focalLength = parseFloat(e.target.value); 
                 document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
+                traceRaysCallback(); 
+            });
+            document.getElementById('detector-x').addEventListener('input', (e) => { 
+                detectorData.mesh.position.x = parseFloat(e.target.value); 
+                document.getElementById('detector-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
         }
