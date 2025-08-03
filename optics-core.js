@@ -86,7 +86,6 @@ export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
  * --- Unified Ray Tracing Engine ---
  */
 export function traceRays(config) {
-    // NEW: Destructure rayCount from the config object, with a default value
     const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100 } = config;
 
     // 1. Clear previous state
@@ -116,19 +115,41 @@ export function traceRays(config) {
         const parallelDirection = new THREE.Vector3(1, 0, 0);
         switch (laserPattern) {
             case 'line':
-                // NEW: Use rayCount to determine the number of rays generated
                 for (let i = 0; i < rayCount; i++) {
-                    // Handle case where rayCount is 1 to avoid division by zero
                     const yOffset = (rayCount === 1) ? 0 : -beamSize / 2 + beamSize * (i / (rayCount - 1));
                     patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
                 }
                 break;
             case 'radial':
-                 // NEW: Use rayCount to determine the number of rays generated
                  for (let i = 0; i < rayCount; i++) {
                     const angle = (i / rayCount) * 2 * Math.PI;
                     const yOffset = Math.sin(angle) * beamSize / 2;
                     const zOffset = Math.cos(angle) * beamSize / 2;
+                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
+                    patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                }
+                break;
+            // NEW: 'cross' pattern
+            case 'cross':
+                const halfCount = Math.floor(rayCount / 2);
+                // Vertical line
+                for (let i = 0; i < halfCount; i++) {
+                    const yOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
+                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
+                }
+                // Horizontal line
+                for (let i = 0; i < halfCount; i++) {
+                    const zOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
+                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y, laserSource.position.z + zOffset), parallelDirection, wl));
+                }
+                break;
+            // NEW: 'disc' pattern
+            case 'disc':
+                for (let i = 0; i < rayCount; i++) {
+                    const radius = (beamSize / 2) * Math.sqrt(Math.random());
+                    const angle = Math.random() * 2 * Math.PI;
+                    const yOffset = radius * Math.sin(angle);
+                    const zOffset = radius * Math.cos(angle);
                     const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
                     patternRays.push(new Ray(startPoint, parallelDirection, wl));
                 }
