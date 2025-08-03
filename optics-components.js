@@ -180,13 +180,13 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
 
 export function createOpticalSlit(name, position, config, elementGroup) {
     const material = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide });
-    const plateSize = 5; // 5 cm plate
+    const plateSize = 5; 
 
     const element = {
         mesh: null,
         type: 'optical-slit',
-        slitWidth: config.slitWidth,   // in cm
-        slitHeight: config.slitHeight, // in cm
+        slitWidth: config.slitWidth,
+        slitHeight: config.slitHeight,
 
         _rebuildMesh: function() {
             const plateShape = new THREE.Shape();
@@ -214,7 +214,7 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 this.mesh = new THREE.Mesh(geometry, material);
                 this.mesh.name = name;
                 this.mesh.position.set(position.x, position.y, position.z);
-                this.mesh.rotation.y = Math.PI / 2; // Face the -X direction
+                this.mesh.rotation.y = Math.PI / 2;
                 elementGroup.add(this.mesh);
             }
         },
@@ -225,11 +225,69 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 
-                // BUG FIX: The slit's geometry is defined in its local X and Y axes.
-                // The check must be against localPoint.x (width) and localPoint.y (height).
                 const isInsideSlit = Math.abs(localPoint.x) <= this.slitWidth / 2 && Math.abs(localPoint.y) <= this.slitHeight / 2;
 
                 if (isInsideSlit) {
+                    return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength) };
+                } else {
+                    if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
+                        return { intersection: intersectPoint };
+                    }
+                }
+            }
+            return null;
+        }
+    };
+
+    element._rebuildMesh();
+    return { mesh: element.mesh, element: element };
+}
+
+export function createAperture(name, position, config, elementGroup) {
+    const material = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide });
+    const plateSize = 5;
+
+    const element = {
+        mesh: null,
+        type: 'aperture',
+        diameter: config.diameter, // in cm
+
+        _rebuildMesh: function() {
+            const plateShape = new THREE.Shape();
+            plateShape.moveTo(-plateSize / 2, -plateSize / 2);
+            plateShape.lineTo(plateSize / 2, -plateSize / 2);
+            plateShape.lineTo(plateSize / 2, plateSize / 2);
+            plateShape.lineTo(-plateSize / 2, plateSize / 2);
+            plateShape.closePath();
+
+            const apertureHole = new THREE.Path();
+            apertureHole.absarc(0, 0, this.diameter / 2, 0, Math.PI * 2, false);
+            
+            plateShape.holes.push(apertureHole);
+            
+            const geometry = new THREE.ShapeGeometry(plateShape);
+
+            if (this.mesh) {
+                this.mesh.geometry.dispose();
+                this.mesh.geometry = geometry;
+            } else {
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.name = name;
+                this.mesh.position.set(position.x, position.y, position.z);
+                this.mesh.rotation.y = Math.PI / 2;
+                elementGroup.add(this.mesh);
+            }
+        },
+
+        processRay: function(ray) {
+            const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
+            if (t > 1e-6) {
+                const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
+                const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
+                
+                const distFromCenter = Math.sqrt(localPoint.x**2 + localPoint.y**2);
+
+                if (distFromCenter <= this.diameter / 2) {
                     return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength) };
                 } else {
                     if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
@@ -241,6 +299,6 @@ export function createOpticalSlit(name, position, config, elementGroup) {
         }
     };
 
-    element._rebuildMesh(); // Initial build
+    element._rebuildMesh();
     return { mesh: element.mesh, element: element };
 }

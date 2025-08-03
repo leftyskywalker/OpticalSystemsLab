@@ -1,4 +1,4 @@
-import { createLens, createMirror, createDetector, createDiffractionGrating, createSphericalMirror, createOpticalSlit } from './optics-components.js';
+import { createLens, createMirror, createDetector, createDiffractionGrating, createSphericalMirror, createOpticalSlit, createAperture } from './optics-components.js';
 
 export const setups = {
     'single-lens': {
@@ -196,8 +196,8 @@ export const setups = {
         name: 'Optical Slit',
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
             const initialConfig = {
-                slitWidth: 50 / 10000, // 50 um in cm
-                slitHeight: 12 / 10,   // 12 mm in cm
+                slitWidth: 50 / 10000,
+                slitHeight: 12 / 10,
             };
             const slitData = createOpticalSlit('slit1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
             opticalElements.push(slitData.element);
@@ -225,8 +225,8 @@ export const setups = {
                 document.getElementById('slit-width-value').textContent = newWidthUM.toFixed(0) + ' µm';
                 document.getElementById('slit-height-value').textContent = newHeightMM.toFixed(1) + ' mm';
     
-                slitData.element.slitWidth = newWidthUM / 10000;   // Convert µm to cm
-                slitData.element.slitHeight = newHeightMM / 10;    // Convert mm to cm
+                slitData.element.slitWidth = newWidthUM / 10000;
+                slitData.element.slitHeight = newHeightMM / 10;
                 
                 slitData.element._rebuildMesh();
                 traceRaysCallback();
@@ -234,6 +234,34 @@ export const setups = {
     
             widthSlider.addEventListener('input', updateSlitDimensions);
             heightSlider.addEventListener('input', updateSlitDimensions);
+        }
+    },
+    'aperture': {
+        name: 'Circular Aperture',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
+            const initialConfig = { diameter: 1.0 }; // Default 1.0 cm = 10mm diameter
+            const apertureData = createAperture('aperture1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
+            opticalElements.push(apertureData.element);
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="aperture-x">Aperture Position (X):</label><input type="range" id="aperture-x" min="-5" max="5" value="0" step="0.1"><span id="aperture-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="aperture-diameter">Diameter (mm):</label><input type="range" id="aperture-diameter" min="1" max="20" value="10" step="0.5"><span id="aperture-diameter-value">10.0 mm</span></div>
+            `;
+
+            document.getElementById('aperture-x').addEventListener('input', (e) => {
+                apertureData.mesh.position.x = parseFloat(e.target.value);
+                document.getElementById('aperture-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
+                traceRaysCallback();
+            });
+
+            document.getElementById('aperture-diameter').addEventListener('input', (e) => {
+                const newDiameterMM = parseFloat(e.target.value);
+                document.getElementById('aperture-diameter-value').textContent = newDiameterMM.toFixed(1) + ' mm';
+                apertureData.element.diameter = newDiameterMM / 10; // Convert mm to cm
+                apertureData.element._rebuildMesh();
+                traceRaysCallback();
+            });
         }
     },
 };
