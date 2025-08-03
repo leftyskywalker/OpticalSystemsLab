@@ -1,4 +1,4 @@
-// === OPTICS CORE ENGINE - V1.2 (Colored Rays from Chart) ===
+// === OPTICS CORE ENGINE - V1.5 (Corrected Detector Mapping) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
 
 /**
@@ -111,32 +111,57 @@ export function traceRays(config) {
     if (setupKey === 'camera-color-chart') {
         const lens = opticalElements.find(el => el.type === 'thin-lens');
         if (lens && colorChart) {
-            // Map of color patches to their representative wavelengths
-            const colorWavelengths = {
-                '#5d80a3': [470], // Blue
-                '#8c8c8c': [650, 532, 450], // Grey -> White Light
-            };
-            const topColor = '#5d80a3';
-            const bottomColor = '#8c8c8c';
-
+            const chartWidth = colorChart.geometry.parameters.width;
             const chartHeight = colorChart.geometry.parameters.height;
             const lensRadius = lens.mesh.geometry.parameters.radiusTop;
             
-            const topPoint = colorChart.position.clone().add(new THREE.Vector3(0, chartHeight / 2, 0));
-            const bottomPoint = colorChart.position.clone().add(new THREE.Vector3(0, -chartHeight / 2, 0));
-    
-            const fieldPoints = [
-                { point: topPoint, wavelengths: colorWavelengths[topColor] },
-                { point: bottomPoint, wavelengths: colorWavelengths[bottomColor] }
+            const numPointsX = 6;
+            const numPointsY = 3;
+            const fieldPoints = [];
+
+            const colors = [
+                '#726254', '#d49e81', '#5d80a3', '#63997a', '#a68cb8', '#c0c0c0',
+                '#b94c49', '#6f9954', '#4b66ac', '#a9629d', '#ca863e', '#808080',
+                '#343434', '#505050', '#6e6e6e', '#8c8c8c', '#aaaaaa', '#ffffff',
             ];
+            const colorWavelengths = {
+                '#726254': [620, 540], '#d49e81': [630, 550], '#5d80a3': [470],
+                '#63997a': [530], '#a68cb8': [460, 640], '#c0c0c0': [450, 532, 650],
+                '#b94c49': [650], '#6f9954': [532], '#4b66ac': [460],
+                '#a9629d': [640, 460], '#ca863e': [610], '#808080': [450, 532, 650],
+                '#343434': [450, 532, 650], '#505050': [450, 532, 650], '#6e6e6e': [450, 532, 650],
+                '#8c8c8c': [450, 532, 650], '#aaaaaa': [450, 532, 650], '#ffffff': [450, 532, 650],
+            };
+
+            for (let i = 0; i < numPointsY; i++) {
+                for (let j = 0; j < numPointsX; j++) {
+                    const y = (i - (numPointsY - 1) / 2) * (chartHeight / (numPointsY - 1));
+                    const z = (j - (numPointsX - 1) / 2) * (chartWidth / (numPointsX - 1));
+                    const point = colorChart.position.clone().add(new THREE.Vector3(0, y, z));
+                    const colorIndex = i * numPointsX + j;
+                    fieldPoints.push({ point, wavelengths: colorWavelengths[colors[colorIndex]] });
+                }
+            }
+            
+            const lensCenter = lens.mesh.position.clone();
+            const topOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, lensRadius, 0));
+            const bottomOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, -lensRadius, 0));
+            const leftOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, 0, -lensRadius));
+            const rightOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, 0, lensRadius));
 
             if (showPrincipalRays) {
-                const lensCenter = lens.mesh.position.clone();
-                const topOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, lensRadius, 0));
-                const bottomOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, -lensRadius, 0));
-                const leftOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, 0, -lensRadius));
-                const rightOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, 0, lensRadius));
+                const topPoint = fieldPoints[2];
+                const bottomPoint = fieldPoints[14];
+                const principalPoints = [topPoint, bottomPoint];
                 
+                principalPoints.forEach(fp => {
+                    fp.wavelengths.forEach(wl => {
+                        initialRays.push(new Ray(fp.point, lensCenter.clone().sub(fp.point).normalize(), wl));
+                        initialRays.push(new Ray(fp.point, topOfLens.clone().sub(fp.point).normalize(), wl));
+                        initialRays.push(new Ray(fp.point, bottomOfLens.clone().sub(fp.point).normalize(), wl));
+                    });
+                });
+            } else {
                 fieldPoints.forEach(fp => {
                     fp.wavelengths.forEach(wl => {
                         initialRays.push(new Ray(fp.point, lensCenter.clone().sub(fp.point).normalize(), wl));
@@ -144,17 +169,6 @@ export function traceRays(config) {
                         initialRays.push(new Ray(fp.point, bottomOfLens.clone().sub(fp.point).normalize(), wl));
                         initialRays.push(new Ray(fp.point, leftOfLens.clone().sub(fp.point).normalize(), wl));
                         initialRays.push(new Ray(fp.point, rightOfLens.clone().sub(fp.point).normalize(), wl));
-                    });
-                });
-            } else {
-                fieldPoints.forEach(fp => {
-                    fp.wavelengths.forEach(wl => {
-                        for (let i = 0; i < rayCount; i++) {
-                            const radius = lensRadius * Math.sqrt(Math.random());
-                            const angle = Math.random() * 2 * Math.PI;
-                            const targetPoint = lens.mesh.position.clone().add(new THREE.Vector3(0, radius * Math.sin(angle), radius * Math.cos(angle)));
-                            initialRays.push(new Ray(fp.point, targetPoint.clone().sub(fp.point).normalize(), wl));
-                        }
                     });
                 });
             }
@@ -237,8 +251,11 @@ export function traceRays(config) {
                     
                     const detector = element.mesh;
                     const localPoint = detector.worldToLocal(result.intersection.clone());
+                    const detectorWidth = detector.geometry.parameters.width;
                     const detectorHeight = detector.geometry.parameters.height;
-                    const pixelX = Math.floor((localPoint.x / detectorHeight + 0.5) * pixelGridSize);
+                    
+                    // BUG FIX: Use localPoint.x for the horizontal pixel coordinate.
+                    const pixelX = Math.floor((localPoint.x / detectorWidth + 0.5) * pixelGridSize);
                     const pixelY = Math.floor((-localPoint.y / detectorHeight + 0.5) * pixelGridSize);
 
                     if (pixelX >= 0 && pixelX < pixelGridSize && pixelY >= 0 && pixelY < pixelGridSize) {
@@ -271,7 +288,7 @@ export function traceRays(config) {
             finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
         }
         
-        if (initialRays.length > 20 && index % 5 !== 0 && !showPrincipalRays) return;
+        if (initialRays.length > 20 && index % 5 !== 0 && !showPrincipalRays && setupKey !== 'camera-color-chart') return;
         
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
         
