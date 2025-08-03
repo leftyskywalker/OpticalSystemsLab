@@ -86,7 +86,11 @@ export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
  * --- Unified Ray Tracing Engine ---
  */
 export function traceRays(config) {
+<<<<<<< HEAD
     const { rayGroup, opticalElements, laserSource, colorChart, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white', showPrincipalRays } = config;
+=======
+    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white' } = config;
+>>>>>>> 55abef4 (Add background color toggle to UI and update ray tracing logic)
 
     // 1. Clear previous state
     while(rayGroup.children.length > 0){
@@ -290,6 +294,7 @@ export function traceRays(config) {
         
         if (initialRays.length > 20 && index % 5 !== 0 && !showPrincipalRays && setupKey !== 'camera-color-chart') return;
         
+<<<<<<< HEAD
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
         
         let rayColor;
@@ -298,6 +303,10 @@ export function traceRays(config) {
         } else {
             rayColor = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
         }
+=======
+        // Define the color for white light based on the background
+        const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
+>>>>>>> 55abef4 (Add background color toggle to UI and update ray tracing logic)
 
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating');
@@ -320,7 +329,12 @@ export function traceRays(config) {
                 }
             }
         } else {
+<<<<<<< HEAD
             const beamMaterial = new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.5 });
+=======
+            const color = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
+            const beamMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
+>>>>>>> 55abef4 (Add background color toggle to UI and update ray tracing logic)
             const beamGeometry = new THREE.BufferGeometry().setFromPoints(finalPath.path);
             rayGroup.add(new THREE.Line(beamGeometry, beamMaterial));
         }
@@ -335,7 +349,11 @@ export function traceRays(config) {
                     if (maxTrueColorIntensity > 0) {
                         const pixel = trueColorIntensities[y][x];
                         if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
+<<<<<<< HEAD
                             if (wavelength === 'white' && setupKey !== 'camera-color-chart') {
+=======
+                            if (wavelength === 'white') {
+>>>>>>> 55abef4 (Add background color toggle to UI and update ray tracing logic)
                                 pixelCtx.fillStyle = 'white';
                             } else {
                                 const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
