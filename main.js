@@ -45,7 +45,7 @@ const simulationConfig = {
     wavelength: 'white',
     laserPattern: 'line',
     sensorType: 'grayscale',
-    rayCount: 100 // NEW: Added rayCount to config
+    rayCount: 100
 };
 
 // === PIXEL VIEWER STATE ===
@@ -61,13 +61,17 @@ const wavelengthValue = document.getElementById('wavelength-value');
 const laserPatternSelect = document.getElementById('laser-pattern-select');
 const sensorTypeContainer = document.getElementById('sensor-type-container');
 const sensorTypeSelect = document.getElementById('sensor-type-select');
-// NEW: References for ray count controls
 const rayCountSlider = document.getElementById('ray-count-slider');
 const rayCountValue = document.getElementById('ray-count-value');
 
 // === CORE APPLICATION LOGIC ===
 
 function updateSimulation() {
+    // BUG FIX: Force an update of all object matrices before ray tracing.
+    // This ensures that the physics engine has the correct, up-to-date
+    // position and rotation data for all elements on the initial load.
+    scene.updateMatrixWorld(true);
+
     traceRays({
         rayGroup,
         opticalElements,
@@ -78,7 +82,7 @@ function updateSimulation() {
         wavelength: simulationConfig.wavelength,
         laserPattern: simulationConfig.laserPattern,
         sensorType: simulationConfig.sensorType,
-        rayCount: simulationConfig.rayCount, // NEW: Pass rayCount to the tracer
+        rayCount: simulationConfig.rayCount,
         setupKey: document.getElementById('setup-select').value
     });
 }
@@ -148,7 +152,6 @@ laserPatternSelect.addEventListener('change', (e) => {
     updateSimulation();
 });
 
-// NEW: Event listener for the ray count slider
 rayCountSlider.addEventListener('input', (e) => {
     const count = parseInt(e.target.value);
     simulationConfig.rayCount = count;
