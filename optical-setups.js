@@ -41,28 +41,40 @@ export const setups = {
         }
     },
     'spherical-mirror': {
-        name: 'Spherical Mirror',
-        init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig }) {
-            const mirrorData = createSphericalMirror('spherical_mirror_1', {x: 5, y: 0, z: 0}, -10, envMap, elementGroup);
-            opticalElements.push(mirrorData.element);
+            name: 'Spherical Mirror',
+            init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig }) {
+                // CHANGE 1: Pass an initial angle of 0 to the creator function.
+                const mirrorData = createSphericalMirror('spherical_mirror_1', {x: 5, y: 0, z: 0}, -10, 0, envMap, elementGroup);
+                opticalElements.push(mirrorData.element);
 
-            const controlsDiv = document.getElementById('setup-controls');
-            controlsDiv.innerHTML = `
-                <div class="control-row"><label for="mirror-x">Mirror Position (X):</label><input type="range" id="mirror-x" min="-5" max="8" value="5" step="0.1"><span id="mirror-x-value">5.0</span></div>
-                <div class="control-row"><label for="mirror-radius">Radius of Curvature:</label><input type="range" id="mirror-radius" min="-20" max="-5" value="-10" step="0.1"><span id="mirror-radius-value">-10.0</span></div>`;
+                const controlsDiv = document.getElementById('setup-controls');
+                // CHANGE 2: Add an angle slider to the controls.
+                controlsDiv.innerHTML = `
+                    <div class="control-row"><label for="mirror-x">Mirror Position (X):</label><input type="range" id="mirror-x" min="-5" max="8" value="5" step="0.1"><span id="mirror-x-value">5.0</span></div>
+                    <div class="control-row"><label for="mirror-radius">Radius of Curvature:</label><input type="range" id="mirror-radius" min="-20" max="-5" value="-10" step="0.1"><span id="mirror-radius-value">-10.0</span></div>
+                    <div class="control-row"><label for="mirror-angle">Mirror Angle:</label><input type="range" id="mirror-angle" min="-45" max="45" value="0" step="1"><span id="mirror-angle-value">0&deg;</span></div>`;
 
-            document.getElementById('mirror-x').addEventListener('input', (e) => {
-                mirrorData.mesh.position.x = parseFloat(e.target.value);
-                document.getElementById('mirror-x-value').textContent = parseFloat(e.target.value).toFixed(1);
-                traceRaysCallback();
-            });
-            document.getElementById('mirror-radius').addEventListener('input', (e) => {
-                mirrorData.element.radius = parseFloat(e.target.value);
-                document.getElementById('mirror-radius-value').textContent = parseFloat(e.target.value).toFixed(1);
-                traceRaysCallback();
-            });
-        }
-    },
+                document.getElementById('mirror-x').addEventListener('input', (e) => {
+                    mirrorData.mesh.position.x = parseFloat(e.target.value);
+                    document.getElementById('mirror-x-value').textContent = parseFloat(e.target.value).toFixed(1);
+                    traceRaysCallback();
+                });
+                document.getElementById('mirror-radius').addEventListener('input', (e) => {
+                    mirrorData.element.radius = parseFloat(e.target.value);
+                    document.getElementById('mirror-radius-value').textContent = parseFloat(e.target.value).toFixed(1);
+                    traceRaysCallback();
+                });
+                
+                // CHANGE 3: Add the event listener for the new angle slider.
+                document.getElementById('mirror-angle').addEventListener('input', (e) => {
+                    const angle = parseFloat(e.target.value);
+                    // The creator function sets a base rotation of -PI/2. We add the user's angle to it.
+                    mirrorData.mesh.rotation.y = -Math.PI / 2 - angle * (Math.PI / 180);
+                    document.getElementById('mirror-angle-value').innerHTML = `${angle}&deg;`;
+                    traceRaysCallback();
+                });
+            }
+        },
     'two-lens-system': {
         name: 'Two Lens System',
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {

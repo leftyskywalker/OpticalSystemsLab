@@ -71,15 +71,21 @@ export function createMirror(name, position, angle, envMap, elementGroup) {
     return { mesh, element };
 }
 
-export function createSphericalMirror(name, position, radius, envMap, elementGroup) {
+export function createSphericalMirror(name, position, radius, angle, envMap, elementGroup) {
     const mirrorMaterial = new THREE.MeshStandardMaterial({
         color: 0xeeeeee, metalness: 1.0, roughness: 0.0, envMap: envMap
     });
+    // NOTE: A true spherical mirror would use SphereGeometry, but for a paraxial approximation,
+    // a PlaneGeometry with a modified reflection formula is computationally cheaper and simpler.
     const mirrorGeometry = new THREE.PlaneGeometry(5, 5);
     const mesh = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
     mesh.name = name;
     mesh.position.set(position.x, position.y, position.z);
-    mesh.rotation.y = -Math.PI / 2; 
+    
+    // CHANGE 1: Apply the user-defined angle in addition to the base rotation.
+    // The base rotation (-PI/2) orients the plane to face the negative x-axis by default.
+    mesh.rotation.y = -Math.PI / 2 - angle * (Math.PI / 180); 
+
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mirrorGeometry), new THREE.LineBasicMaterial({ color: 0x333333 })));
     elementGroup.add(mesh);
 
@@ -87,28 +93,38 @@ export function createSphericalMirror(name, position, radius, envMap, elementGro
         mesh: mesh, type: 'spherical-mirror', radius: radius,
         processRay: function(ray) {
             const plane = new THREE.Plane();
-            const normal = new THREE.Vector3(1, 0, 0); // Normal points towards the laser
+            
+            // CHANGE 2: Calculate the normal dynamically based on the mesh's rotation.
+            // A PlaneGeometry's default normal is (0, 0, 1). We apply the mesh's rotation to it.
+            const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
+            
             plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
+            
             const intersectPoint = new THREE.Vector3();
-
             if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
-                if (ray.direction.dot(intersectPoint.clone().sub(ray.origin)) < 0) return null;
+                if (ray.direction.dot(intersectPoint.clone().sub(ray.origin)) < 0) return null; // Intersection is behind the ray's origin
+                
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
-
                 if (Math.abs(localPoint.x) <= mirrorGeometry.parameters.width / 2 && Math.abs(localPoint.y) <= mirrorGeometry.parameters.height / 2) {
                     
-                    // --- FIX: A concave mirror (negative R) should have a positive focal length for this formula. ---
+                    // CHANGE 3: New coordinate-system-independent focusing logic.
+                    // This logic works regardless of the mirror's rotation.
+
+                    // A concave mirror (e.g., R = -20) should have a positive focal length (f = 10).
                     const focalLength = -this.radius / 2;
                     
-                    const y = intersectPoint.y - this.mesh.position.y;
-                    const z = intersectPoint.z - this.mesh.position.z;
-                    
+                    // 1. Calculate the simple specular reflection (like a flat mirror).
                     const reflectedDir = ray.direction.clone().reflect(normal);
-                    const newDir = new THREE.Vector3(
-                        reflectedDir.x,
-                        reflectedDir.y - y / focalLength,
-                        reflectedDir.z - z / focalLength
-                    ).normalize();
+
+                    // 2. Find the vector from the mirror's center to the intersection point.
+                    const displacement = intersectPoint.clone().sub(this.mesh.position);
+                    
+                    // 3. Calculate a correction vector that "pulls" the reflected ray towards the focal point.
+                    // The correction is opposite to the displacement and scaled by the focal length.
+                    const correction = displacement.multiplyScalar(-1 / focalLength);
+
+                    // 4. The new direction is the specular reflection plus the focusing correction.
+                    const newDir = reflectedDir.add(correction).normalize();
 
                     return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
                 }
@@ -118,7 +134,6 @@ export function createSphericalMirror(name, position, radius, envMap, elementGro
     };
     return { mesh, element };
 }
-
 
 export function createDetector(name, position, elementGroup) {
     const detectorMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, side: THREE.DoubleSide });
