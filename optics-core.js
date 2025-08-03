@@ -1,4 +1,4 @@
-// === OPTICS CORE ENGINE - V1.0 ===
+// === OPTICS CORE ENGINE - V1.1 (Corrected Lens Physics) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
 
 /**
@@ -124,11 +124,8 @@ export function traceRays(config) {
             const defaultWavelength = 550;
     
             points.forEach(point => {
-                // Ray towards lens center
                 initialRays.push(new Ray(point, lensCenter.clone().sub(point).normalize(), defaultWavelength));
-                // Ray towards top of lens
                 initialRays.push(new Ray(point, topOfLens.clone().sub(point).normalize(), defaultWavelength));
-                // Ray towards bottom of lens
                 initialRays.push(new Ray(point, bottomOfLens.clone().sub(point).normalize(), defaultWavelength));
             });
         }
@@ -183,7 +180,8 @@ export function traceRays(config) {
 
 
     // 3. Unified Tracing Loop
-    let activePaths = initialRays.map(ray => ({ ray: ray, path: [ray.origin], terminated: false, hasSplit: false }));
+    // MODIFICATION: Store the original ray to use for lens calculations.
+    let activePaths = initialRays.map(ray => ({ ray: ray, originalRay: ray, path: [ray.origin], terminated: false, hasSplit: false }));
 
     for (const element of opticalElements) {
         let nextActivePaths = [];
@@ -193,11 +191,13 @@ export function traceRays(config) {
                 continue;
             }
 
-            const result = element.processRay(currentPath.ray);
+            // MODIFICATION: Pass the original ray to the processing function.
+            const result = element.processRay(currentPath.ray, currentPath.originalRay);
             if (result) {
                 if (result.newRays) { 
                     result.newRays.forEach(newRay => {
-                        nextActivePaths.push({ ray: newRay, path: [...currentPath.path, newRay.origin], terminated: false, hasSplit: true });
+                        // MODIFICATION: Propagate the original ray to new paths.
+                        nextActivePaths.push({ ray: newRay, originalRay: currentPath.originalRay, path: [...currentPath.path, newRay.origin], terminated: false, hasSplit: true });
                     });
                 } else if (result.newRay) { 
                     currentPath.path.push(result.newRay.origin);

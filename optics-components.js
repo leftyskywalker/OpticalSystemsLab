@@ -1,4 +1,4 @@
-// === OPTICS COMPONENTS - V1.7 (Corrected Spherical Mirror Focusing) ===
+// === OPTICS COMPONENTS - V2.0 (Corrected Multi-Lens & Paraxial Physics) ===
 // Contains the factory functions for creating optical elements.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
@@ -15,7 +15,7 @@ export function createLens(name, position, focalLength, elementGroup) {
 
     const element = {
         mesh: mesh, type: 'thin-lens', focalLength: focalLength,
-        processRay: function(ray) {
+        processRay: function(ray, originalRay) {
             if (ray.direction.x === 0) return null;
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             if (t > 1e-6) {
@@ -24,12 +24,44 @@ export function createLens(name, position, focalLength, elementGroup) {
                 const distFromCenter = Math.sqrt(intersectPointLocal.y**2 + intersectPointLocal.z**2);
                 
                 if (distFromCenter <= lensGeometry.parameters.radiusTop) {
-                    const y = intersectPoint.y;
-                    const z = intersectPoint.z;
-                    const newDirY = -y / this.focalLength + ray.direction.y;
-                    const newDirZ = -z / this.focalLength + ray.direction.z;
-                    const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
-                    return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
+                    // --- CORRECTED LENS LOGIC ---
+
+                    // Distinguish between rays from a resolved object (color chart) and a collimated source (laser).
+                    // Laser's original rays are parallel to the x-axis, while the chart's are not.
+                    const isObjectRay = originalRay && (originalRay.direction.y !== 0 || originalRay.direction.z !== 0);
+
+                    if (isObjectRay) {
+                        // For the color chart, use the perfect imaging equation for a clear demonstration.
+                        const P_obj = originalRay.origin;
+                        const lensCenter = this.mesh.position;
+                        const so = lensCenter.x - P_obj.x;
+                        if (Math.abs(so) < 1e-6) return null;
+                        const si = 1 / (1 / this.focalLength - 1 / so);
+                        const M = -si / so;
+                        const h_obj_y = P_obj.y - lensCenter.y;
+                        const h_obj_z = P_obj.z - lensCenter.z;
+                        const P_img = new THREE.Vector3(
+                            lensCenter.x + si,
+                            h_obj_y * M + lensCenter.y,
+                            h_obj_z * M + lensCenter.z
+                        );
+                        const newDir = P_img.clone().sub(intersectPoint).normalize();
+                        return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
+
+                    } else {
+                        // For all laser-based systems, use the general paraxial lens formula.
+                        // This correctly handles rays that are parallel OR already converging/diverging.
+                        const y = intersectPoint.y - this.mesh.position.y;
+                        const z = intersectPoint.z - this.mesh.position.z;
+
+                        // Assuming paraxial rays, dir.x is approx 1, so dir.y is approx the ray's angle (slope).
+                        // The new angle = old angle - (height / focal length).
+                        const newDirY = ray.direction.y - y / this.focalLength;
+                        const newDirZ = ray.direction.z - z / this.focalLength;
+                        
+                        const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
+                        return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
+                    }
                 }
             }
             return null;
@@ -52,7 +84,7 @@ export function createMirror(name, position, angle, envMap, elementGroup) {
 
     const element = {
         mesh: mesh, type: 'mirror',
-        processRay: function(ray) {
+        processRay: function(ray, originalRay) {
             const plane = new THREE.Plane();
             const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
             plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
@@ -85,7 +117,7 @@ export function createSphericalMirror(name, position, radius, angle, envMap, ele
 
     const element = {
         mesh: mesh, type: 'spherical-mirror', radius: radius,
-        processRay: function(ray) {
+        processRay: function(ray, originalRay) {
             const plane = new THREE.Plane();
             const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
             plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
@@ -121,7 +153,7 @@ export function createDetector(name, position, elementGroup) {
 
     const element = {
         mesh: mesh, type: 'detector',
-        processRay: function(ray) {
+        processRay: function(ray, originalRay) {
             const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(1, 0, 0), this.mesh.position);
             const intersectPoint = new THREE.Vector3();
             if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
@@ -147,7 +179,7 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
 
     const element = {
         mesh: mesh, type: 'grating', linesPerMM: linesPerMM,
-        processRay: function(ray) {
+        processRay: function(ray, originalRay) {
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
@@ -219,7 +251,7 @@ export function createOpticalSlit(name, position, config, elementGroup) {
             }
         },
 
-        processRay: function(ray) {
+        processRay: function(ray, originalRay) {
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
@@ -279,7 +311,7 @@ export function createAperture(name, position, config, elementGroup) {
             }
         },
 
-        processRay: function(ray) {
+        processRay: function(ray, originalRay) {
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
@@ -302,3 +334,5 @@ export function createAperture(name, position, config, elementGroup) {
     element._rebuildMesh();
     return { mesh: element.mesh, element: element };
 }
+
+

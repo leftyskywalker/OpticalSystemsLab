@@ -116,7 +116,7 @@ function updateSimulation() {
         rayGroup,
         opticalElements,
         laserSource,
-        colorChart, // Pass the color chart to the tracer
+        colorChart,
         pixelCtx,
         pixelCanvas,
         pixelGridSize,
@@ -177,6 +177,7 @@ function switchSetup(setupKey) {
             elementGroup,
             traceRaysCallback: updateSimulation,
             laserSource,
+            colorChart, // Pass colorChart to all setups
             envMap: cubeCamera.renderTarget.texture,
             simulationConfig
         });
@@ -259,5 +260,6 @@ function animate() {
 wavelengthSelect.dispatchEvent(new Event('change'));
 switchSetup('single-lens');
 animate();
+
 
 

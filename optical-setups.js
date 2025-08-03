@@ -214,7 +214,11 @@ export const setups = {
                 <hr>
                 <div class="setup-title">Detector</div>
                 <div class="control-row"><label for="detector-x">Position (X):</label><input type="range" id="detector-x" min="1" max="15" value="8" step="0.1"><span id="detector-x-value">8.0 cm</span></div>
+                <div class="control-row"><button id="autofocus-btn" style="width: 100%;">Auto-Focus</button></div>
             `;
+
+            const focalLengthSlider = document.getElementById('focal-length');
+            const focalLengthValue = document.getElementById('focal-length-value');
 
             document.getElementById('laser-y').addEventListener('input', (e) => { 
                 laserSource.position.y = parseFloat(e.target.value); 
@@ -231,9 +235,9 @@ export const setups = {
                 document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
-            document.getElementById('focal-length').addEventListener('input', (e) => { 
+            focalLengthSlider.addEventListener('input', (e) => { 
                 lensData.element.focalLength = parseFloat(e.target.value); 
-                document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
+                focalLengthValue.textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
             document.getElementById('detector-x').addEventListener('input', (e) => { 
@@ -241,11 +245,21 @@ export const setups = {
                 document.getElementById('detector-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
+            document.getElementById('autofocus-btn').addEventListener('click', () => {
+                const so = Math.abs(laserSource.position.x - lensData.mesh.position.x);
+                const si = Math.abs(detectorData.mesh.position.x - lensData.mesh.position.x);
+                const f = 1 / (1 / so + 1 / si);
+                
+                lensData.element.focalLength = f;
+                focalLengthSlider.value = f;
+                focalLengthValue.textContent = f.toFixed(1) + ' cm';
+                traceRaysCallback();
+            });
         }
     },
     'camera-color-chart': {
         name: 'Camera (Color Chart)',
-        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
+        init: function({ opticalElements, elementGroup, traceRaysCallback, colorChart, simulationConfig }) {
             const lensData = createLens('lens1', {x: 0, y: 0, z: 0}, 5, elementGroup);
             const detectorData = createDetector('detector1', {x: 8, y: 0, z: 0}, elementGroup);
             opticalElements.push(lensData.element, detectorData.element);
@@ -260,22 +274,36 @@ export const setups = {
                 <hr>
                 <div class="setup-title">Detector</div>
                 <div class="control-row"><label for="detector-x">Position (X):</label><input type="range" id="detector-x" min="1" max="15" value="8" step="0.1"><span id="detector-x-value">8.0 cm</span></div>
+                <div class="control-row"><button id="autofocus-btn" style="width: 100%;">Auto-Focus</button></div>
             `;
+            
+            const focalLengthSlider = document.getElementById('focal-length');
+            const focalLengthValue = document.getElementById('focal-length-value');
 
             document.getElementById('lens-x').addEventListener('input', (e) => { 
                 lensData.mesh.position.x = parseFloat(e.target.value); 
                 document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
-            document.getElementById('focal-length').addEventListener('input', (e) => { 
+            focalLengthSlider.addEventListener('input', (e) => { 
                 lensData.element.focalLength = parseFloat(e.target.value); 
-                document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
+                focalLengthValue.textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
             document.getElementById('detector-x').addEventListener('input', (e) => { 
                 detectorData.mesh.position.x = parseFloat(e.target.value); 
                 document.getElementById('detector-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
+            });
+            document.getElementById('autofocus-btn').addEventListener('click', () => {
+                const so = Math.abs(colorChart.position.x - lensData.mesh.position.x);
+                const si = Math.abs(detectorData.mesh.position.x - lensData.mesh.position.x);
+                const f = 1 / (1 / so + 1 / si);
+
+                lensData.element.focalLength = f;
+                focalLengthSlider.value = f;
+                focalLengthValue.textContent = f.toFixed(1) + ' cm';
+                traceRaysCallback();
             });
         }
     },
