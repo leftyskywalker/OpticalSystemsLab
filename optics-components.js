@@ -311,28 +311,37 @@ export function createAperture(name, position, config, elementGroup) {
             }
         },
 
-        processRay: function(ray, originalRay) {
-            const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
-            if (t > 1e-6) {
-                const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
-                const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
-                
-                const distFromCenter = Math.sqrt(localPoint.x**2 + localPoint.y**2);
+        // Located in optics-components.js inside the createLens function
 
-                if (distFromCenter <= this.diameter / 2) {
-                    return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength) };
-                } else {
-                    if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
-                        return { intersection: intersectPoint }; // Block the ray
-                    }
-                }
-            }
-            return null;
+processRay: function(ray, originalRay) {
+    // Check if the ray is heading towards the lens plane
+    if (ray.direction.x === 0) return null;
+    const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
+    
+    if (t > 1e-6) {
+        const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
+        const intersectPointLocal = this.mesh.worldToLocal(intersectPoint.clone());
+        const distFromCenter = Math.sqrt(intersectPointLocal.y**2 + intersectPointLocal.z**2);
+
+        // Check if the ray hits the physical lens
+        if (distFromCenter <= lensGeometry.parameters.radiusTop) {
+            // --- UNIFIED LENS LOGIC ---
+            // Use the general paraxial lens formula for all rays.
+            // This correctly handles rays that are parallel, converging, or diverging.
+            const y = intersectPoint.y - this.mesh.position.y;
+            const z = intersectPoint.z - this.mesh.position.z;
+
+            // The new angle = old angle - (height / focal length).
+            // We approximate the angle by the y and z components of the direction vector.
+            const newDirY = ray.direction.y - y / this.focalLength;
+            const newDirZ = ray.direction.z - z / this.focalLength;
+            
+            const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
+            return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
         }
-    };
-
-    element._rebuildMesh();
-    return { mesh: element.mesh, element: element };
+    }
+    // Ray doesn't intersect or misses the lens
+    return null;
+    }
+ }
 }
-
-
