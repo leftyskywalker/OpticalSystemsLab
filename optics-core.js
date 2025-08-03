@@ -129,21 +129,17 @@ export function traceRays(config) {
                     patternRays.push(new Ray(startPoint, parallelDirection, wl));
                 }
                 break;
-            // NEW: 'cross' pattern
             case 'cross':
                 const halfCount = Math.floor(rayCount / 2);
-                // Vertical line
                 for (let i = 0; i < halfCount; i++) {
                     const yOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
                     patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
                 }
-                // Horizontal line
                 for (let i = 0; i < halfCount; i++) {
                     const zOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
                     patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y, laserSource.position.z + zOffset), parallelDirection, wl));
                 }
                 break;
-            // NEW: 'disc' pattern
             case 'disc':
                 for (let i = 0; i < rayCount; i++) {
                     const radius = (beamSize / 2) * Math.sqrt(Math.random());
@@ -171,15 +167,15 @@ export function traceRays(config) {
 
             const result = element.processRay(currentPath.ray);
             if (result) {
-                if (result.newRays) { // Branching case (grating)
+                if (result.newRays) { 
                     result.newRays.forEach(newRay => {
                         nextActivePaths.push({ ray: newRay, path: [...currentPath.path, newRay.origin], terminated: false, hasSplit: true });
                     });
-                } else if (result.newRay) { // Single path case (lens/mirror)
+                } else if (result.newRay) { 
                     currentPath.path.push(result.newRay.origin);
                     currentPath.ray = result.newRay;
                     nextActivePaths.push(currentPath);
-                } else if (result.intersection) { // Absorbing case (detector)
+                } else if (result.intersection) { 
                     currentPath.path.push(result.intersection);
                     currentPath.terminated = true;
                     nextActivePaths.push(currentPath);
@@ -259,10 +255,15 @@ export function traceRays(config) {
                     if (maxTrueColorIntensity > 0) {
                         const pixel = trueColorIntensities[y][x];
                         if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
-                            const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
-                            const g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
-                            const b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
-                            pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                            // NEW LOGIC: If the source is white light, just draw white.
+                            if (wavelength === 'white') {
+                                pixelCtx.fillStyle = 'white';
+                            } else { // Otherwise, draw the actual color of the single wavelength.
+                                const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
+                                const g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
+                                const b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
+                                pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                            }
                             pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
                         }
                     }
@@ -278,11 +279,11 @@ export function traceRays(config) {
                                 const isTopRow = y % 2 === 0;
                                 const isLeftColumn = x % 2 === 0;
                                 if (isTopRow) {
-                                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
-                                    else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`; // Red
+                                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
+                                    else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`;
                                 } else {
-                                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`; // Blue
-                                    else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
+                                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`;
+                                    else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
                                 }
                             } else { // Grayscale
                                 const gray = Math.round((r + g + b) / 3);
