@@ -40,13 +40,51 @@ const laserSource = new THREE.Mesh(
 laserSource.position.set(-10, 0, 0);
 scene.add(laserSource);
 
+// --- NEW: Color Chart Object ---
+function createColorChartTexture() {
+    const canvas = document.createElement('canvas');
+    const size = 256;
+    canvas.width = size * 2;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    const colors = [
+        // Row 1
+        '#726254', '#d49e81', '#5d80a3', '#63997a', '#a68cb8', '#c0c0c0',
+        // Row 2
+        '#b94c49', '#6f9954', '#4b66ac', '#a9629d', '#ca863e', '#808080',
+        // Row 3
+        '#343434', '#505050', '#6e6e6e', '#8c8c8c', '#aaaaaa', '#ffffff',
+    ];
+
+    const patchWidth = canvas.width / 6;
+    const patchHeight = canvas.height / 3;
+
+    for (let i = 0; i < colors.length; i++) {
+        const x = (i % 6) * patchWidth;
+        const y = Math.floor(i / 6) * patchHeight;
+        ctx.fillStyle = colors[i];
+        ctx.fillRect(x, y, patchWidth, patchHeight);
+    }
+    return new THREE.CanvasTexture(canvas);
+}
+
+const colorChart = new THREE.Mesh(
+    new THREE.PlaneGeometry(5, 2.5),
+    new THREE.MeshBasicMaterial({ map: createColorChartTexture() })
+);
+colorChart.position.set(-10, 0, 0);
+colorChart.visible = false;
+scene.add(colorChart);
+
+
 // Central config for simulation parameters
 const simulationConfig = {
     wavelength: 'white',
     laserPattern: 'line',
     sensorType: 'grayscale',
     rayCount: 100,
-    backgroundColor: 'white' // Added for background state
+    backgroundColor: 'white'
 };
 
 // === PIXEL VIEWER STATE ===
@@ -55,20 +93,29 @@ const pixelCtx = pixelCanvas.getContext('2d');
 const pixelGridSize = 50;
 
 // === UI ELEMENT REFERENCES ===
+const wavelengthControls = document.getElementById('wavelength-controls');
 const wavelengthSelect = document.getElementById('wavelength-select');
 const wavelengthSliderContainer = document.getElementById('wavelength-slider-container');
 const wavelengthSlider = document.getElementById('wavelength-slider');
 const wavelengthValue = document.getElementById('wavelength-value');
+const laserPatternControls = document.getElementById('laser-pattern-controls');
 const laserPatternSelect = document.getElementById('laser-pattern-select');
 const sensorTypeContainer = document.getElementById('sensor-type-container');
 const sensorTypeSelect = document.getElementById('sensor-type-select');
 const rayCountSlider = document.getElementById('ray-count-slider');
 const rayCountValue = document.getElementById('ray-count-value');
-const backgroundToggle = document.getElementById('bg-toggle'); // Reference for new checkbox
+const backgroundToggle = document.getElementById('bg-toggle');
 
 // === CORE APPLICATION LOGIC ===
 
 function updateSimulation() {
+    const setupKey = document.getElementById('setup-select').value;
+    // Don't trace rays for the color chart setup yet
+    if (setupKey === 'camera-color-chart') {
+        while(rayGroup.children.length > 0){ rayGroup.remove(rayGroup.children[0]); }
+        return;
+    }
+
     scene.updateMatrixWorld(true);
 
     traceRays({
@@ -82,8 +129,8 @@ function updateSimulation() {
         laserPattern: simulationConfig.laserPattern,
         sensorType: simulationConfig.sensorType,
         rayCount: simulationConfig.rayCount,
-        backgroundColor: simulationConfig.backgroundColor, // Pass color state to engine
-        setupKey: document.getElementById('setup-select').value
+        backgroundColor: simulationConfig.backgroundColor,
+        setupKey: setupKey
     });
 }
 
@@ -100,6 +147,12 @@ function clearSetup() {
             if(child.material) child.material.dispose();
         }
     }
+    // Hide all sources and show all controls by default
+    laserSource.visible = false;
+    colorChart.visible = false;
+    wavelengthControls.style.display = 'flex';
+    laserPatternControls.style.display = 'flex';
+
     document.getElementById('setup-controls').innerHTML = '';
     document.getElementById('pixel-viewer-container').style.display = 'none';
     sensorTypeContainer.style.display = 'none';
@@ -109,9 +162,19 @@ function clearSetup() {
 
 function switchSetup(setupKey) {
     clearSetup();
-    if (setupKey === 'camera-sensor') {
+    
+    // Show/hide UI and sources based on setup
+    if (setupKey.startsWith('camera')) {
         sensorTypeContainer.style.display = 'flex';
     }
+    if (setupKey === 'camera-color-chart') {
+        colorChart.visible = true;
+        wavelengthControls.style.display = 'none';
+        laserPatternControls.style.display = 'none';
+    } else {
+        laserSource.visible = true;
+    }
+
     const setup = setups[setupKey];
     if (setup) {
         setup.init({
@@ -164,7 +227,6 @@ sensorTypeSelect.addEventListener('change', (e) => {
     updateSimulation();
 });
 
-// Listener for the background toggle
 backgroundToggle.addEventListener('change', (e) => {
     simulationConfig.backgroundColor = e.target.checked ? 'black' : 'white';
     scene.background.set(simulationConfig.backgroundColor === 'black' ? 0x000000 : 0xffffff);

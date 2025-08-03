@@ -24,6 +24,78 @@ export const setups = {
             });
         }
     },
+    'aperture': {
+        name: 'Circular Aperture',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
+            const initialConfig = { diameter: 1.0 }; // Default 1.0 cm = 10mm diameter
+            const apertureData = createAperture('aperture1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
+            opticalElements.push(apertureData.element);
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="aperture-x">Aperture Position (X):</label><input type="range" id="aperture-x" min="-5" max="5" value="0" step="0.1"><span id="aperture-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="aperture-diameter">Diameter (mm):</label><input type="range" id="aperture-diameter" min="1" max="20" value="10" step="0.5"><span id="aperture-diameter-value">10.0 mm</span></div>
+            `;
+
+            document.getElementById('aperture-x').addEventListener('input', (e) => {
+                apertureData.mesh.position.x = parseFloat(e.target.value);
+                document.getElementById('aperture-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
+                traceRaysCallback();
+            });
+
+            document.getElementById('aperture-diameter').addEventListener('input', (e) => {
+                const newDiameterMM = parseFloat(e.target.value);
+                document.getElementById('aperture-diameter-value').textContent = newDiameterMM.toFixed(1) + ' mm';
+                apertureData.element.diameter = newDiameterMM / 10; // Convert mm to cm
+                apertureData.element._rebuildMesh();
+                traceRaysCallback();
+            });
+        }
+    },
+    'optical-slit': {
+        name: 'Optical Slit',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
+            const initialConfig = {
+                slitWidth: 50 / 10000,
+                slitHeight: 12 / 10,
+            };
+            const slitData = createOpticalSlit('slit1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
+            opticalElements.push(slitData.element);
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="slit-x">Slit Position (X):</label><input type="range" id="slit-x" min="-5" max="5" value="0" step="0.1"><span id="slit-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="slit-width">Slit Width (µm):</label><input type="range" id="slit-width" min="10" max="500" value="50" step="5"><span id="slit-width-value">50 µm</span></div>
+                <div class="control-row"><label for="slit-height">Slit Height (mm):</label><input type="range" id="slit-height" min="1" max="20" value="12" step="0.5"><span id="slit-height-value">12.0 mm</span></div>
+            `;
+
+            document.getElementById('slit-x').addEventListener('input', (e) => {
+                slitData.mesh.position.x = parseFloat(e.target.value);
+                document.getElementById('slit-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
+                traceRaysCallback();
+            });
+    
+            const widthSlider = document.getElementById('slit-width');
+            const heightSlider = document.getElementById('slit-height');
+    
+            function updateSlitDimensions() {
+                const newWidthUM = parseFloat(widthSlider.value);
+                const newHeightMM = parseFloat(heightSlider.value);
+    
+                document.getElementById('slit-width-value').textContent = newWidthUM.toFixed(0) + ' µm';
+                document.getElementById('slit-height-value').textContent = newHeightMM.toFixed(1) + ' mm';
+    
+                slitData.element.slitWidth = newWidthUM / 10000;
+                slitData.element.slitHeight = newHeightMM / 10;
+                
+                slitData.element._rebuildMesh();
+                traceRaysCallback();
+            }
+    
+            widthSlider.addEventListener('input', updateSlitDimensions);
+            heightSlider.addEventListener('input', updateSlitDimensions);
+        }
+    },
     'flat-mirror': {
         name: 'Flat Mirror',
         init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig }) {
@@ -122,8 +194,8 @@ export const setups = {
             });
         }
     },
-    'camera-sensor': {
-        name: 'Camera Sensor',
+    'camera-laser': {
+        name: 'Camera (Laser)',
         init: function({ opticalElements, elementGroup, traceRaysCallback, laserSource, simulationConfig }) {
             const lensData = createLens('lens1', {x: 0, y: 0, z: 0}, 5, elementGroup);
             const detectorData = createDetector('detector1', {x: 8, y: 0, z: 0}, elementGroup);
@@ -163,6 +235,34 @@ export const setups = {
             });
         }
     },
+    'camera-color-chart': {
+        name: 'Camera (Color Chart)',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
+            const lensData = createLens('lens1', {x: 0, y: 0, z: 0}, 5, elementGroup);
+            const detectorData = createDetector('detector1', {x: 8, y: 0, z: 0}, elementGroup);
+            opticalElements.push(lensData.element, detectorData.element);
+
+            document.getElementById('pixel-viewer-container').style.display = 'block';
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="setup-title">Lens</div>
+                <div class="control-row"><label for="lens-x">Position (X):</label><input type="range" id="lens-x" min="-5" max="5" value="0" step="0.1"><span id="lens-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="focal-length">Focal Length:</label><input type="range" id="focal-length" min="1" max="10" value="5" step="0.1"><span id="focal-length-value">5.0 cm</span></div>
+            `;
+
+            document.getElementById('lens-x').addEventListener('input', (e) => { 
+                lensData.mesh.position.x = parseFloat(e.target.value); 
+                document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
+                traceRaysCallback(); 
+            });
+            document.getElementById('focal-length').addEventListener('input', (e) => { 
+                lensData.element.focalLength = parseFloat(e.target.value); 
+                document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
+                traceRaysCallback(); 
+            });
+        }
+    },
     'diffraction-grating': {
         name: 'Diffraction Grating',
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
@@ -188,78 +288,6 @@ export const setups = {
                 const density = parseInt(e.target.value);
                 gratingData.element.linesPerMM = density;
                 document.getElementById('grating-density-value').textContent = density;
-                traceRaysCallback();
-            });
-        }
-    },
-    'optical-slit': {
-        name: 'Optical Slit',
-        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
-            const initialConfig = {
-                slitWidth: 50 / 10000,
-                slitHeight: 12 / 10,
-            };
-            const slitData = createOpticalSlit('slit1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
-            opticalElements.push(slitData.element);
-
-            const controlsDiv = document.getElementById('setup-controls');
-            controlsDiv.innerHTML = `
-                <div class="control-row"><label for="slit-x">Slit Position (X):</label><input type="range" id="slit-x" min="-5" max="5" value="0" step="0.1"><span id="slit-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="slit-width">Slit Width (µm):</label><input type="range" id="slit-width" min="10" max="500" value="50" step="5"><span id="slit-width-value">50 µm</span></div>
-                <div class="control-row"><label for="slit-height">Slit Height (mm):</label><input type="range" id="slit-height" min="1" max="20" value="12" step="0.5"><span id="slit-height-value">12.0 mm</span></div>
-            `;
-
-            document.getElementById('slit-x').addEventListener('input', (e) => {
-                slitData.mesh.position.x = parseFloat(e.target.value);
-                document.getElementById('slit-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
-                traceRaysCallback();
-            });
-    
-            const widthSlider = document.getElementById('slit-width');
-            const heightSlider = document.getElementById('slit-height');
-    
-            function updateSlitDimensions() {
-                const newWidthUM = parseFloat(widthSlider.value);
-                const newHeightMM = parseFloat(heightSlider.value);
-    
-                document.getElementById('slit-width-value').textContent = newWidthUM.toFixed(0) + ' µm';
-                document.getElementById('slit-height-value').textContent = newHeightMM.toFixed(1) + ' mm';
-    
-                slitData.element.slitWidth = newWidthUM / 10000;
-                slitData.element.slitHeight = newHeightMM / 10;
-                
-                slitData.element._rebuildMesh();
-                traceRaysCallback();
-            }
-    
-            widthSlider.addEventListener('input', updateSlitDimensions);
-            heightSlider.addEventListener('input', updateSlitDimensions);
-        }
-    },
-    'aperture': {
-        name: 'Circular Aperture',
-        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
-            const initialConfig = { diameter: 1.0 }; // Default 1.0 cm = 10mm diameter
-            const apertureData = createAperture('aperture1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
-            opticalElements.push(apertureData.element);
-
-            const controlsDiv = document.getElementById('setup-controls');
-            controlsDiv.innerHTML = `
-                <div class="control-row"><label for="aperture-x">Aperture Position (X):</label><input type="range" id="aperture-x" min="-5" max="5" value="0" step="0.1"><span id="aperture-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="aperture-diameter">Diameter (mm):</label><input type="range" id="aperture-diameter" min="1" max="20" value="10" step="0.5"><span id="aperture-diameter-value">10.0 mm</span></div>
-            `;
-
-            document.getElementById('aperture-x').addEventListener('input', (e) => {
-                apertureData.mesh.position.x = parseFloat(e.target.value);
-                document.getElementById('aperture-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
-                traceRaysCallback();
-            });
-
-            document.getElementById('aperture-diameter').addEventListener('input', (e) => {
-                const newDiameterMM = parseFloat(e.target.value);
-                document.getElementById('aperture-diameter-value').textContent = newDiameterMM.toFixed(1) + ' mm';
-                apertureData.element.diameter = newDiameterMM / 10; // Convert mm to cm
-                apertureData.element._rebuildMesh();
                 traceRaysCallback();
             });
         }
