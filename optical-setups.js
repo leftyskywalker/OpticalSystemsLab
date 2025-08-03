@@ -119,8 +119,6 @@ export const setups = {
             document.getElementById('laser-y').addEventListener('input', (e) => { laserSource.position.y = parseFloat(e.target.value); document.getElementById('laser-y-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
             document.getElementById('laser-z').addEventListener('input', (e) => { laserSource.position.z = parseFloat(e.target.value); document.getElementById('laser-z-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
             document.getElementById('lens-x').addEventListener('input', (e) => { lensData.mesh.position.x = parseFloat(e.target.value); document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1); traceRaysCallback(); });
-            
-            // BUG FIX: Changed 'lens-focal' to 'focal-length' to match the input element's ID.
             document.getElementById('focal-length').addEventListener('input', (e) => { 
                 lensData.element.focalLength = parseFloat(e.target.value); 
                 document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1); 
@@ -131,20 +129,30 @@ export const setups = {
     'diffraction-grating': {
         name: 'Diffraction Grating',
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
-            const gratingConfig = { linesPerMM: 1000 };
+            const gratingConfig = { linesPerMM: 600 }; // A common starting value
             const gratingData = createDiffractionGrating('grating1', {x: 0, y: 0, z: 0}, gratingConfig, elementGroup);
             opticalElements.push(gratingData.element);
 
             document.getElementById('pixel-viewer-container').style.display = 'none';
 
             const controlsDiv = document.getElementById('setup-controls');
+            // NEW: Added a slider for groove density
             controlsDiv.innerHTML = `
                 <div class="control-row"><label for="grating-x">Grating Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0</span></div>
+                <div class="control-row"><label for="grating-density">Groove Density (L/mm):</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600</span></div>
             `;
 
             document.getElementById('grating-x').addEventListener('input', (e) => {
                 gratingData.mesh.position.x = parseFloat(e.target.value);
                 document.getElementById('grating-x-value').textContent = parseFloat(e.target.value).toFixed(1);
+                traceRaysCallback();
+            });
+
+            // NEW: Event listener for the groove density slider
+            document.getElementById('grating-density').addEventListener('input', (e) => {
+                const density = parseInt(e.target.value);
+                gratingData.element.linesPerMM = density;
+                document.getElementById('grating-density-value').textContent = density;
                 traceRaysCallback();
             });
         }
