@@ -1,4 +1,4 @@
-// === OPTICS CORE ENGINE - V1.1 (Corrected Lens Physics) ===
+// === OPTICS CORE ENGINE - V1.2 (Colored Rays from Chart) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
 
 /**
@@ -86,7 +86,7 @@ export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
  * --- Unified Ray Tracing Engine ---
  */
 export function traceRays(config) {
-    const { rayGroup, opticalElements, laserSource, colorChart, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white' } = config;
+    const { rayGroup, opticalElements, laserSource, colorChart, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white', showPrincipalRays } = config;
 
     // 1. Clear previous state
     while(rayGroup.children.length > 0){
@@ -111,23 +111,53 @@ export function traceRays(config) {
     if (setupKey === 'camera-color-chart') {
         const lens = opticalElements.find(el => el.type === 'thin-lens');
         if (lens && colorChart) {
+            // Map of color patches to their representative wavelengths
+            const colorWavelengths = {
+                '#5d80a3': [470], // Blue
+                '#8c8c8c': [650, 532, 450], // Grey -> White Light
+            };
+            const topColor = '#5d80a3';
+            const bottomColor = '#8c8c8c';
+
             const chartHeight = colorChart.geometry.parameters.height;
             const lensRadius = lens.mesh.geometry.parameters.radiusTop;
             
             const topPoint = colorChart.position.clone().add(new THREE.Vector3(0, chartHeight / 2, 0));
             const bottomPoint = colorChart.position.clone().add(new THREE.Vector3(0, -chartHeight / 2, 0));
     
-            const points = [topPoint, bottomPoint];
-            const lensCenter = lens.mesh.position.clone();
-            const topOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, lensRadius, 0));
-            const bottomOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, -lensRadius, 0));
-            const defaultWavelength = 550;
-    
-            points.forEach(point => {
-                initialRays.push(new Ray(point, lensCenter.clone().sub(point).normalize(), defaultWavelength));
-                initialRays.push(new Ray(point, topOfLens.clone().sub(point).normalize(), defaultWavelength));
-                initialRays.push(new Ray(point, bottomOfLens.clone().sub(point).normalize(), defaultWavelength));
-            });
+            const fieldPoints = [
+                { point: topPoint, wavelengths: colorWavelengths[topColor] },
+                { point: bottomPoint, wavelengths: colorWavelengths[bottomColor] }
+            ];
+
+            if (showPrincipalRays) {
+                const lensCenter = lens.mesh.position.clone();
+                const topOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, lensRadius, 0));
+                const bottomOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, -lensRadius, 0));
+                const leftOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, 0, -lensRadius));
+                const rightOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, 0, lensRadius));
+                
+                fieldPoints.forEach(fp => {
+                    fp.wavelengths.forEach(wl => {
+                        initialRays.push(new Ray(fp.point, lensCenter.clone().sub(fp.point).normalize(), wl));
+                        initialRays.push(new Ray(fp.point, topOfLens.clone().sub(fp.point).normalize(), wl));
+                        initialRays.push(new Ray(fp.point, bottomOfLens.clone().sub(fp.point).normalize(), wl));
+                        initialRays.push(new Ray(fp.point, leftOfLens.clone().sub(fp.point).normalize(), wl));
+                        initialRays.push(new Ray(fp.point, rightOfLens.clone().sub(fp.point).normalize(), wl));
+                    });
+                });
+            } else {
+                fieldPoints.forEach(fp => {
+                    fp.wavelengths.forEach(wl => {
+                        for (let i = 0; i < rayCount; i++) {
+                            const radius = lensRadius * Math.sqrt(Math.random());
+                            const angle = Math.random() * 2 * Math.PI;
+                            const targetPoint = lens.mesh.position.clone().add(new THREE.Vector3(0, radius * Math.sin(angle), radius * Math.cos(angle)));
+                            initialRays.push(new Ray(fp.point, targetPoint.clone().sub(fp.point).normalize(), wl));
+                        }
+                    });
+                });
+            }
         }
     } else {
         const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
@@ -180,7 +210,6 @@ export function traceRays(config) {
 
 
     // 3. Unified Tracing Loop
-    // MODIFICATION: Store the original ray to use for lens calculations.
     let activePaths = initialRays.map(ray => ({ ray: ray, originalRay: ray, path: [ray.origin], terminated: false, hasSplit: false }));
 
     for (const element of opticalElements) {
@@ -191,12 +220,10 @@ export function traceRays(config) {
                 continue;
             }
 
-            // MODIFICATION: Pass the original ray to the processing function.
-            const result = element.processRay(currentPath.ray, currentPath.originalRay);
+            const result = element.processRay(currentPath.ray, currentPath.originalRay, config);
             if (result) {
                 if (result.newRays) { 
                     result.newRays.forEach(newRay => {
-                        // MODIFICATION: Propagate the original ray to new paths.
                         nextActivePaths.push({ ray: newRay, originalRay: currentPath.originalRay, path: [...currentPath.path, newRay.origin], terminated: false, hasSplit: true });
                     });
                 } else if (result.newRay) { 
@@ -244,9 +271,16 @@ export function traceRays(config) {
             finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
         }
         
-        if (initialRays.length > 20 && index % 5 !== 0) return;
+        if (initialRays.length > 20 && index % 5 !== 0 && !showPrincipalRays) return;
         
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
+        
+        let rayColor;
+        if (setupKey === 'camera-color-chart') {
+            rayColor = wavelengthToRGB(finalPath.ray.wavelength);
+        } else {
+            rayColor = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
+        }
 
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating');
@@ -269,8 +303,7 @@ export function traceRays(config) {
                 }
             }
         } else {
-            const color = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
-            const beamMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
+            const beamMaterial = new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.5 });
             const beamGeometry = new THREE.BufferGeometry().setFromPoints(finalPath.path);
             rayGroup.add(new THREE.Line(beamGeometry, beamMaterial));
         }
@@ -285,7 +318,7 @@ export function traceRays(config) {
                     if (maxTrueColorIntensity > 0) {
                         const pixel = trueColorIntensities[y][x];
                         if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
-                            if (wavelength === 'white') {
+                            if (wavelength === 'white' && setupKey !== 'camera-color-chart') {
                                 pixelCtx.fillStyle = 'white';
                             } else {
                                 const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
@@ -326,4 +359,3 @@ export function traceRays(config) {
         }
     }
 }
-
