@@ -383,5 +383,9 @@ export const setups = {
             heightSlider.addEventListener('input', updateSlitDimensions);
         }
     },
+<<<<<<< HEAD
+};
+>>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
+=======
 };
 >>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)

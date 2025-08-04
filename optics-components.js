@@ -266,7 +266,11 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 } else {
                     if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
 <<<<<<< HEAD
+<<<<<<< HEAD
                         return { intersection: intersectPoint };
+=======
+                        return { intersection: intersectPoint }; // Block the ray
+>>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
 =======
                         return { intersection: intersectPoint }; // Block the ray
 >>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
@@ -274,6 +278,7 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 }
             }
             return null;
+<<<<<<< HEAD
 <<<<<<< HEAD
         }
     };
@@ -353,6 +358,8 @@ processRay: function(ray, originalRay) {
  }
 }
 =======
+=======
+>>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
         }
     };
 
