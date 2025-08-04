@@ -43,9 +43,15 @@ scene.add(laserSource);
 // --- Image Plane Object ---
 const textureLoader = new THREE.TextureLoader();
 const imageUrl = 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/ColorChart.png';
+const texture = textureLoader.load(imageUrl, () => {
+    // Once the texture loads, update the simulation if the correct setup is active
+    if (document.getElementById('setup-select').value === 'camera-image-object') {
+        updateSimulation();
+    }
+});
 const imageObject = new THREE.Mesh(
     new THREE.PlaneGeometry(5, 4), // Using a 5:4 aspect ratio to match the image
-    new THREE.MeshBasicMaterial({ map: textureLoader.load(imageUrl) })
+    new THREE.MeshBasicMaterial({ map: texture })
 );
 imageObject.position.set(-10, 0, 0);
 imageObject.rotation.y = Math.PI / 2;
@@ -90,6 +96,7 @@ function updateSimulation() {
         rayGroup,
         opticalElements,
         laserSource,
+        imageObject,
         pixelCtx,
         pixelCanvas,
         pixelGridSize,
@@ -115,11 +122,13 @@ function clearSetup() {
             if(child.material) child.material.dispose();
         }
     }
-    // Hide all sources and show all controls by default
+    // Hide all sources and restore all controls to their default visible state
     laserSource.visible = false;
     imageObject.visible = false;
     wavelengthControls.style.display = 'flex';
     laserPatternControls.style.display = 'flex';
+    rayCountSlider.parentElement.style.display = 'flex';
+
 
     document.getElementById('setup-controls').innerHTML = '';
     document.getElementById('pixel-viewer-container').style.display = 'none';
@@ -138,8 +147,10 @@ function switchSetup(setupKey) {
 
     if (setupKey === 'camera-image-object') {
         imageObject.visible = true;
+        // Hide controls that are not relevant for this setup
         wavelengthControls.style.display = 'none';
         laserPatternControls.style.display = 'none';
+        rayCountSlider.parentElement.style.display = 'none';
     } else {
         laserSource.visible = true;
     }

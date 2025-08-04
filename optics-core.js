@@ -1,4 +1,4 @@
-// === OPTICS CORE ENGINE - V1.7 (Added Ray-Free Setup) ===
+// === OPTICS CORE ENGINE - V2.0 (Corrected Pixel Sampling) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
 
 /**
@@ -86,7 +86,7 @@ export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
  * --- Unified Ray Tracing Engine ---
  */
 export function traceRays(config) {
-    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white' } = config;
+    const { rayGroup, opticalElements, laserSource, imageObject, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white' } = config;
 
     // 1. Clear previous state
     while(rayGroup.children.length > 0){
@@ -110,7 +110,43 @@ export function traceRays(config) {
     let activePaths = [];
 
     if (setupKey === 'camera-image-object') {
-        // No rays are traced for this setup, as requested.
+        const texture = imageObject.material.map;
+        // Ensure the image texture has been loaded before proceeding
+        if (texture && texture.image && texture.image.width > 0) {
+            const image = texture.image;
+            const canvas = document.createElement('canvas');
+            canvas.width = image.width;
+            canvas.height = image.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(image, 0, 0, image.width, image.height);
+            const imageData = ctx.getImageData(0, 0, image.width, image.height).data;
+
+            const planeWidth = imageObject.geometry.parameters.width;
+            const planeHeight = imageObject.geometry.parameters.height;
+            
+            // Define a sampling rate to avoid generating too many rays.
+            // This will sample one pixel every N pixels in each direction, creating a uniform grid.
+            const PIXEL_SAMPLING_RATE = 10; 
+
+            for (let y = 0; y < image.height; y += PIXEL_SAMPLING_RATE) {
+                for (let x = 0; x < image.width; x += PIXEL_SAMPLING_RATE) {
+                    const index = (y * image.width + x) * 4;
+                    const a = imageData[index + 3];
+
+                    // Only create a ray if the pixel is not fully transparent
+                    if (a > 0) {
+                        // Map pixel coordinates (x,y) to the 3D plane's local coordinates
+                        const localX = (x / image.width - 0.5) * planeWidth;
+                        const localY = -(y / image.height - 0.5) * planeHeight; // Y is inverted in texture data
+                        
+                        const origin = imageObject.localToWorld(new THREE.Vector3(localX, localY, 0));
+                        const direction = new THREE.Vector3(1, 0, 0); // Collimated ray
+                        
+                        initialRays.push(new Ray(origin, direction));
+                    }
+                }
+            }
+        }
     } else {
         // All other setups use the laser source
         const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
@@ -159,9 +195,9 @@ export function traceRays(config) {
             }
             initialRays.push(...patternRays);
         });
-        activePaths = initialRays.map(ray => ({ ray: ray, originalRay: ray, path: [ray.origin], terminated: false, hasSplit: false }));
     }
-
+    
+    activePaths = initialRays.map(ray => ({ ray: ray, originalRay: ray, path: [ray.origin], terminated: false, hasSplit: false }));
 
     // 3. Unified Tracing Loop
     for (const element of opticalElements) {
@@ -225,10 +261,8 @@ export function traceRays(config) {
             finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
         }
         
-        if (initialRays.length > 20 && index % 5 !== 0) return;
-        
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
-        const rayColor = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
+        const rayColor = (wavelength === 'white' && setupKey !== 'camera-image-object') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
 
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating');
