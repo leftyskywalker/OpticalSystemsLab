@@ -1,4 +1,4 @@
-import { createLens, createMirror, createDetector, createDiffractionGrating, createSphericalMirror, createOpticalSlit } from './optics-components.js';
+import { createLens, createMirror, createDetector, createDiffractionGrating, createSphericalMirror, createOpticalSlit, createAperture } from './optics-components.js';
 
 export const setups = {
     'single-lens': {
@@ -336,56 +336,4 @@ export const setups = {
             });
         }
     },
-<<<<<<< HEAD
 };
-=======
-    'optical-slit': {
-        name: 'Optical Slit',
-        init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
-            const initialConfig = {
-                slitWidth: 50 / 10000, // 50 um in cm
-                slitHeight: 12 / 10,   // 12 mm in cm
-            };
-            const slitData = createOpticalSlit('slit1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
-            opticalElements.push(slitData.element);
-
-            const controlsDiv = document.getElementById('setup-controls');
-            controlsDiv.innerHTML = `
-                <div class="control-row"><label for="slit-x">Slit Position (X):</label><input type="range" id="slit-x" min="-5" max="5" value="0" step="0.1"><span id="slit-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="slit-width">Slit Width (µm):</label><input type="range" id="slit-width" min="10" max="500" value="50" step="5"><span id="slit-width-value">50 µm</span></div>
-                <div class="control-row"><label for="slit-height">Slit Height (mm):</label><input type="range" id="slit-height" min="1" max="20" value="12" step="0.5"><span id="slit-height-value">12.0 mm</span></div>
-            `;
-
-            document.getElementById('slit-x').addEventListener('input', (e) => {
-                slitData.mesh.position.x = parseFloat(e.target.value);
-                document.getElementById('slit-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
-                traceRaysCallback();
-            });
-    
-            const widthSlider = document.getElementById('slit-width');
-            const heightSlider = document.getElementById('slit-height');
-    
-            function updateSlitDimensions() {
-                const newWidthUM = parseFloat(widthSlider.value);
-                const newHeightMM = parseFloat(heightSlider.value);
-    
-                document.getElementById('slit-width-value').textContent = newWidthUM.toFixed(0) + ' µm';
-                document.getElementById('slit-height-value').textContent = newHeightMM.toFixed(1) + ' mm';
-    
-                slitData.element.slitWidth = newWidthUM / 10000;   // Convert µm to cm
-                slitData.element.slitHeight = newHeightMM / 10;    // Convert mm to cm
-                
-                slitData.element._rebuildMesh();
-                traceRaysCallback();
-            }
-    
-            widthSlider.addEventListener('input', updateSlitDimensions);
-            heightSlider.addEventListener('input', updateSlitDimensions);
-        }
-    },
-<<<<<<< HEAD
-};
->>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
-=======
-};
->>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)

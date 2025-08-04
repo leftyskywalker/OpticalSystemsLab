@@ -1,4 +1,4 @@
-// === OPTICS COMPONENTS - V2.0 (Corrected Multi-Lens & Paraxial Physics) ===
+// === OPTICS COMPONENTS - V2.1 (Fixed Merge & Unified Logic) ===
 // Contains the factory functions for creating optical elements.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
@@ -16,54 +16,33 @@ export function createLens(name, position, focalLength, elementGroup) {
     const element = {
         mesh: mesh, type: 'thin-lens', focalLength: focalLength,
         processRay: function(ray, originalRay) {
+            // Check if the ray is heading towards the lens plane
             if (ray.direction.x === 0) return null;
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
+            
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const intersectPointLocal = this.mesh.worldToLocal(intersectPoint.clone());
                 const distFromCenter = Math.sqrt(intersectPointLocal.y**2 + intersectPointLocal.z**2);
-                
+
+                // Check if the ray hits the physical lens
                 if (distFromCenter <= lensGeometry.parameters.radiusTop) {
-                    // --- CORRECTED LENS LOGIC ---
+                    // --- UNIFIED LENS LOGIC ---
+                    // Use the general paraxial lens formula for all rays.
+                    // This correctly handles rays that are parallel, converging, or diverging.
+                    const y = intersectPoint.y - this.mesh.position.y;
+                    const z = intersectPoint.z - this.mesh.position.z;
 
-                    // Distinguish between rays from a resolved object (color chart) and a collimated source (laser).
-                    // Laser's original rays are parallel to the x-axis, while the chart's are not.
-                    const isObjectRay = originalRay && (originalRay.direction.y !== 0 || originalRay.direction.z !== 0);
-
-                    if (isObjectRay) {
-                        // For the color chart, use the perfect imaging equation for a clear demonstration.
-                        const P_obj = originalRay.origin;
-                        const lensCenter = this.mesh.position;
-                        const so = lensCenter.x - P_obj.x;
-                        if (Math.abs(so) < 1e-6) return null;
-                        const si = 1 / (1 / this.focalLength - 1 / so);
-                        const M = -si / so;
-                        const h_obj_y = P_obj.y - lensCenter.y;
-                        const h_obj_z = P_obj.z - lensCenter.z;
-                        const P_img = new THREE.Vector3(
-                            lensCenter.x + si,
-                            h_obj_y * M + lensCenter.y,
-                            h_obj_z * M + lensCenter.z
-                        );
-                        const newDir = P_img.clone().sub(intersectPoint).normalize();
-                        return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
-
-                    } else {
-                        // For all laser-based systems, use the general paraxial lens formula.
-                        // This correctly handles rays that are parallel OR already converging/diverging.
-                        const y = intersectPoint.y - this.mesh.position.y;
-                        const z = intersectPoint.z - this.mesh.position.z;
-
-                        // Assuming paraxial rays, dir.x is approx 1, so dir.y is approx the ray's angle (slope).
-                        // The new angle = old angle - (height / focal length).
-                        const newDirY = ray.direction.y - y / this.focalLength;
-                        const newDirZ = ray.direction.z - z / this.focalLength;
-                        
-                        const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
-                        return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
-                    }
+                    // The new angle = old angle - (height / focal length).
+                    // We approximate the angle by the y and z components of the direction vector.
+                    const newDirY = ray.direction.y - y / this.focalLength;
+                    const newDirZ = ray.direction.z - z / this.focalLength;
+                    
+                    const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
+                    return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
                 }
             }
+            // Ray doesn't intersect or misses the lens
             return null;
         }
     };
@@ -265,21 +244,11 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                     return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength) };
                 } else {
                     if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-                        return { intersection: intersectPoint };
-=======
                         return { intersection: intersectPoint }; // Block the ray
->>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
-=======
-                        return { intersection: intersectPoint }; // Block the ray
->>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
                     }
                 }
             }
             return null;
-<<<<<<< HEAD
-<<<<<<< HEAD
         }
     };
 
@@ -323,47 +292,33 @@ export function createAperture(name, position, config, elementGroup) {
             }
         },
 
-        // Located in optics-components.js inside the createLens function
+        processRay: function(ray, originalRay) {
+            // Find intersection with the plane of the aperture
+            const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
+            if (t > 1e-6) {
+                const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
+                // Convert intersection point to the mesh's local coordinates
+                const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
+                
+                // The geometry is in the local XY plane. Check if inside the circular hole.
+                const distanceFromCenter = Math.sqrt(localPoint.x**2 + localPoint.y**2);
 
-processRay: function(ray, originalRay) {
-    // Check if the ray is heading towards the lens plane
-    if (ray.direction.x === 0) return null;
-    const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
-    
-    if (t > 1e-6) {
-        const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
-        const intersectPointLocal = this.mesh.worldToLocal(intersectPoint.clone());
-        const distFromCenter = Math.sqrt(intersectPointLocal.y**2 + intersectPointLocal.z**2);
-
-        // Check if the ray hits the physical lens
-        if (distFromCenter <= lensGeometry.parameters.radiusTop) {
-            // --- UNIFIED LENS LOGIC ---
-            // Use the general paraxial lens formula for all rays.
-            // This correctly handles rays that are parallel, converging, or diverging.
-            const y = intersectPoint.y - this.mesh.position.y;
-            const z = intersectPoint.z - this.mesh.position.z;
-
-            // The new angle = old angle - (height / focal length).
-            // We approximate the angle by the y and z components of the direction vector.
-            const newDirY = ray.direction.y - y / this.focalLength;
-            const newDirZ = ray.direction.z - z / this.focalLength;
-            
-            const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
-            return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
-        }
-    }
-    // Ray doesn't intersect or misses the lens
-    return null;
-    }
- }
-}
-=======
-=======
->>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
+                if (distanceFromCenter <= this.diameter / 2) {
+                    // Ray passes through the aperture
+                    return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength) };
+                } else {
+                    // Ray hits the plate, check if it's within the plate bounds before blocking
+                    if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
+                        // Block the ray
+                        return { intersection: intersectPoint };
+                    }
+                }
+            }
+            // Ray doesn't intersect or is outside the component
+            return null;
         }
     };
 
     element._rebuildMesh(); // Initial build
     return { mesh: element.mesh, element: element };
 }
->>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)

@@ -18,11 +18,10 @@
         #pixel-canvas { background-color: #000; border-radius: 4px; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- UI for controlling optical components -->
     <div id="controls-container">
         <div class="control-row">
             <label for="setup-select">Optical Setup:</label>
@@ -34,15 +33,8 @@
                 <option value="spherical-mirror">Spherical Mirror</option>
                 <option value="two-lens-system">Two Lens System</option>
                 <option value="diffraction-grating">Diffraction Grating</option>
-<<<<<<< HEAD
                 <option value="camera-laser">Camera (Laser)</option>
                 <option value="camera-color-chart">Camera (Color Chart)</option>
-=======
-                <option value="optical-slit">Optical Slit</option>
-<<<<<<< HEAD
->>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
-=======
->>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
             </select>
         </div>
         
@@ -90,21 +82,17 @@
         </div>
 
         <hr>
-        <!-- Controls for the selected setup will be dynamically inserted here -->
         <div id="setup-controls"></div>
     </div>
 
-    <!-- Pixel Array Viewer -->
     <div id="pixel-viewer-container" style="display: none;">
         <label>Pixel Sensor Array</label>
         <canvas id="pixel-canvas" width="200" height="200"></canvas>
     </div>
 
-    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-    <!-- Main application script -->
     <script type="module" src="main.js"></script>
 
 </body>
