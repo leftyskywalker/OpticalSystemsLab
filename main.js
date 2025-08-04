@@ -40,6 +40,19 @@ const laserSource = new THREE.Mesh(
 laserSource.position.set(-10, 0, 0);
 scene.add(laserSource);
 
+// --- Image Plane Object ---
+const textureLoader = new THREE.TextureLoader();
+const imageUrl = 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/ColorChart.png';
+const imageObject = new THREE.Mesh(
+    new THREE.PlaneGeometry(5, 4), // Using a 5:4 aspect ratio to match the image
+    new THREE.MeshBasicMaterial({ map: textureLoader.load(imageUrl) })
+);
+imageObject.position.set(-10, 0, 0);
+imageObject.rotation.y = Math.PI / 2;
+imageObject.visible = false;
+scene.add(imageObject);
+
+
 // Central config for simulation parameters
 const simulationConfig = {
     wavelength: 'white',
@@ -103,7 +116,8 @@ function clearSetup() {
         }
     }
     // Hide all sources and show all controls by default
-    laserSource.visible = true;
+    laserSource.visible = false;
+    imageObject.visible = false;
     wavelengthControls.style.display = 'flex';
     laserPatternControls.style.display = 'flex';
 
@@ -122,6 +136,14 @@ function switchSetup(setupKey) {
         sensorTypeContainer.style.display = 'flex';
     }
 
+    if (setupKey === 'camera-image-object') {
+        imageObject.visible = true;
+        wavelengthControls.style.display = 'none';
+        laserPatternControls.style.display = 'none';
+    } else {
+        laserSource.visible = true;
+    }
+
     const setup = setups[setupKey];
     if (setup) {
         setup.init({
@@ -129,6 +151,7 @@ function switchSetup(setupKey) {
             elementGroup,
             traceRaysCallback: updateSimulation,
             laserSource,
+            imageObject,
             envMap: cubeCamera.renderTarget.texture,
             simulationConfig
         });
@@ -211,5 +234,3 @@ function animate() {
 wavelengthSelect.dispatchEvent(new Event('change'));
 switchSetup('single-lens');
 animate();
-
-

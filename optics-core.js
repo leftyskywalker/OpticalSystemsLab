@@ -1,4 +1,4 @@
-// === OPTICS CORE ENGINE - V1.6 (Simplified Ray Generation) ===
+// === OPTICS CORE ENGINE - V1.7 (Added Ray-Free Setup) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
 
 /**
@@ -105,59 +105,65 @@ export function traceRays(config) {
     let maxSensorIntensity = 0;
     let maxTrueColorIntensity = 0;
 
-    // 2. Generate initial rays (Laser Source Only)
+    // 2. Generate initial rays
     let initialRays = [];
-    const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
-    const beamSize = 1.0; 
+    let activePaths = [];
 
-    wavelengths.forEach(wl => {
-        let patternRays = [];
-        const parallelDirection = new THREE.Vector3(1, 0, 0);
-        switch (laserPattern) {
-            case 'line':
-                for (let i = 0; i < rayCount; i++) {
-                    const yOffset = (rayCount === 1) ? 0 : -beamSize / 2 + beamSize * (i / (rayCount - 1));
-                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
-                }
-                break;
-            case 'radial':
-                 for (let i = 0; i < rayCount; i++) {
-                    const angle = (i / rayCount) * 2 * Math.PI;
-                    const yOffset = Math.sin(angle) * beamSize / 2;
-                    const zOffset = Math.cos(angle) * beamSize / 2;
-                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
-                    patternRays.push(new Ray(startPoint, parallelDirection, wl));
-                }
-                break;
-            case 'cross':
-                const halfCount = Math.floor(rayCount / 2);
-                for (let i = 0; i < halfCount; i++) {
-                    const yOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
-                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
-                }
-                for (let i = 0; i < halfCount; i++) {
-                    const zOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
-                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y, laserSource.position.z + zOffset), parallelDirection, wl));
-                }
-                break;
-            case 'disc':
-                for (let i = 0; i < rayCount; i++) {
-                    const radius = (beamSize / 2) * Math.sqrt(Math.random());
-                    const angle = Math.random() * 2 * Math.PI;
-                    const yOffset = radius * Math.sin(angle);
-                    const zOffset = radius * Math.cos(angle);
-                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
-                    patternRays.push(new Ray(startPoint, parallelDirection, wl));
-                }
-                break;
-        }
-        initialRays.push(...patternRays);
-    });
+    if (setupKey === 'camera-image-object') {
+        // No rays are traced for this setup, as requested.
+    } else {
+        // All other setups use the laser source
+        const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
+        const beamSize = 1.0; 
+    
+        wavelengths.forEach(wl => {
+            let patternRays = [];
+            const parallelDirection = new THREE.Vector3(1, 0, 0);
+            switch (laserPattern) {
+                case 'line':
+                    for (let i = 0; i < rayCount; i++) {
+                        const yOffset = (rayCount === 1) ? 0 : -beamSize / 2 + beamSize * (i / (rayCount - 1));
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
+                    }
+                    break;
+                case 'radial':
+                     for (let i = 0; i < rayCount; i++) {
+                        const angle = (i / rayCount) * 2 * Math.PI;
+                        const yOffset = Math.sin(angle) * beamSize / 2;
+                        const zOffset = Math.cos(angle) * beamSize / 2;
+                        const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
+                        patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                    }
+                    break;
+                case 'cross':
+                    const halfCount = Math.floor(rayCount / 2);
+                    for (let i = 0; i < halfCount; i++) {
+                        const yOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
+                    }
+                    for (let i = 0; i < halfCount; i++) {
+                        const zOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y, laserSource.position.z + zOffset), parallelDirection, wl));
+                    }
+                    break;
+                case 'disc':
+                    for (let i = 0; i < rayCount; i++) {
+                        const radius = (beamSize / 2) * Math.sqrt(Math.random());
+                        const angle = Math.random() * 2 * Math.PI;
+                        const yOffset = radius * Math.sin(angle);
+                        const zOffset = radius * Math.cos(angle);
+                        const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
+                        patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                    }
+                    break;
+            }
+            initialRays.push(...patternRays);
+        });
+        activePaths = initialRays.map(ray => ({ ray: ray, originalRay: ray, path: [ray.origin], terminated: false, hasSplit: false }));
+    }
 
 
     // 3. Unified Tracing Loop
-    let activePaths = initialRays.map(ray => ({ ray: ray, originalRay: ray, path: [ray.origin], terminated: false, hasSplit: false }));
-
     for (const element of opticalElements) {
         let nextActivePaths = [];
         for (const currentPath of activePaths) {
