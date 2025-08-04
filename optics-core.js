@@ -1,4 +1,4 @@
-// === OPTICS CORE ENGINE - V2.1 (Full Color Ray Tracing) ===
+// === OPTICS CORE ENGINE - V2.3 (Detector Bug Fix) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
 
 /**
@@ -112,7 +112,6 @@ export function traceRays(config) {
 
     if (setupKey === 'camera-image-object') {
         const texture = imageObject.material.map;
-        // Ensure the image texture has been loaded before proceeding
         if (texture && texture.image && texture.image.width > 0) {
             const image = texture.image;
             const canvas = document.createElement('canvas');
@@ -135,22 +134,20 @@ export function traceRays(config) {
                     const b = imageData[index + 2] / 255;
                     const a = imageData[index + 3] / 255;
 
-                    // Only create a ray if the pixel is not fully transparent
                     if (a > 0) {
                         const localX = (x / image.width - 0.5) * planeWidth;
-                        const localY = -(y / image.height - 0.5) * planeHeight; // Y is inverted in texture data
+                        const localY = -(y / image.height - 0.5) * planeHeight;
                         
                         const origin = imageObject.localToWorld(new THREE.Vector3(localX, localY, 0));
-                        const direction = new THREE.Vector3(1, 0, 0); // Collimated ray
+                        const direction = new THREE.Vector3(1, 0, 0);
                         const color = new THREE.Color(r, g, b);
                         
-                        initialRays.push(new Ray(origin, direction, 555, color)); // Use 555nm as a placeholder wavelength
+                        initialRays.push(new Ray(origin, direction, 555, color));
                     }
                 }
             }
         }
     } else {
-        // All other setups use the laser source
         const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
         const beamSize = 1.0; 
     
@@ -235,17 +232,28 @@ export function traceRays(config) {
 
                     if (pixelX >= 0 && pixelX < pixelGridSize && pixelY >= 0 && pixelY < pixelGridSize) {
                          const sensorPixel = sensorIntensities[pixelY][pixelX];
-                         sensorPixel.r += getFilterResponse(result.wavelength, 'R');
-                         sensorPixel.g += getFilterResponse(result.wavelength, 'G');
-                         sensorPixel.b += getFilterResponse(result.wavelength, 'B');
-                         maxSensorIntensity = Math.max(maxSensorIntensity, sensorPixel.r, sensorPixel.g, sensorPixel.b);
-                         
                          const trueColorPixel = trueColorIntensities[pixelY][pixelX];
-                         // Use the ray's explicit color if it exists, otherwise fall back to wavelength
-                         const trueColor = result.color ?? wavelengthToRGB(result.wavelength);
-                         trueColorPixel.r += trueColor.r;
-                         trueColorPixel.g += trueColor.g;
-                         trueColorPixel.b += trueColor.b;
+
+                         if (result.color) {
+                             sensorPixel.r += result.color.r;
+                             sensorPixel.g += result.color.g;
+                             sensorPixel.b += result.color.b;
+
+                             trueColorPixel.r += result.color.r;
+                             trueColorPixel.g += result.color.g;
+                             trueColorPixel.b += result.color.b;
+                         } else {
+                             sensorPixel.r += getFilterResponse(result.wavelength, 'R');
+                             sensorPixel.g += getFilterResponse(result.wavelength, 'G');
+                             sensorPixel.b += getFilterResponse(result.wavelength, 'B');
+                             
+                             const trueColor = wavelengthToRGB(result.wavelength);
+                             trueColorPixel.r += trueColor.r;
+                             trueColorPixel.g += trueColor.g;
+                             trueColorPixel.b += trueColor.b;
+                         }
+                         
+                         maxSensorIntensity = Math.max(maxSensorIntensity, sensorPixel.r, sensorPixel.g, sensorPixel.b);
                          maxTrueColorIntensity = Math.max(maxTrueColorIntensity, trueColorPixel.r, trueColorPixel.g, trueColorPixel.b);
                     }
                 } else {
@@ -267,7 +275,6 @@ export function traceRays(config) {
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
         let rayColor;
 
-        // If the ray has its own color property, use it. Otherwise, derive from wavelength.
         if (finalPath.ray.color) {
             rayColor = finalPath.ray.color;
         } else {
