@@ -40,45 +40,6 @@ const laserSource = new THREE.Mesh(
 laserSource.position.set(-10, 0, 0);
 scene.add(laserSource);
 
-// --- Color Chart Object ---
-function createColorChartTexture() {
-    const canvas = document.createElement('canvas');
-    const size = 256;
-    canvas.width = size * 2;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-
-    const colors = [
-        // Row 1
-        '#726254', '#d49e81', '#5d80a3', '#63997a', '#a68cb8', '#c0c0c0',
-        // Row 2
-        '#b94c49', '#6f9954', '#4b66ac', '#a9629d', '#ca863e', '#808080',
-        // Row 3
-        '#343434', '#505050', '#6e6e6e', '#8c8c8c', '#aaaaaa', '#ffffff',
-    ];
-
-    const patchWidth = canvas.width / 6;
-    const patchHeight = canvas.height / 3;
-
-    for (let i = 0; i < colors.length; i++) {
-        const x = (i % 6) * patchWidth;
-        const y = Math.floor(i / 6) * patchHeight;
-        ctx.fillStyle = colors[i];
-        ctx.fillRect(x, y, patchWidth, patchHeight);
-    }
-    return new THREE.CanvasTexture(canvas);
-}
-
-const colorChart = new THREE.Mesh(
-    new THREE.PlaneGeometry(5, 2.5),
-    new THREE.MeshBasicMaterial({ map: createColorChartTexture() })
-);
-colorChart.position.set(-10, 0, 0);
-colorChart.rotation.y = Math.PI / 2;
-colorChart.visible = false;
-scene.add(colorChart);
-
-
 // Central config for simulation parameters
 const simulationConfig = {
     wavelength: 'white',
@@ -116,7 +77,6 @@ function updateSimulation() {
         rayGroup,
         opticalElements,
         laserSource,
-        colorChart,
         pixelCtx,
         pixelCanvas,
         pixelGridSize,
@@ -143,8 +103,7 @@ function clearSetup() {
         }
     }
     // Hide all sources and show all controls by default
-    laserSource.visible = false;
-    colorChart.visible = false;
+    laserSource.visible = true;
     wavelengthControls.style.display = 'flex';
     laserPatternControls.style.display = 'flex';
 
@@ -162,13 +121,6 @@ function switchSetup(setupKey) {
     if (setupKey.startsWith('camera')) {
         sensorTypeContainer.style.display = 'flex';
     }
-    if (setupKey === 'camera-color-chart') {
-        colorChart.visible = true;
-        wavelengthControls.style.display = 'none';
-        laserPatternControls.style.display = 'none';
-    } else {
-        laserSource.visible = true;
-    }
 
     const setup = setups[setupKey];
     if (setup) {
@@ -177,7 +129,6 @@ function switchSetup(setupKey) {
             elementGroup,
             traceRaysCallback: updateSimulation,
             laserSource,
-            colorChart, // Pass colorChart to all setups
             envMap: cubeCamera.renderTarget.texture,
             simulationConfig
         });
@@ -260,6 +211,5 @@ function animate() {
 wavelengthSelect.dispatchEvent(new Event('change'));
 switchSetup('single-lens');
 animate();
-
 
 

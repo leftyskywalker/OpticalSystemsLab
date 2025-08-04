@@ -1,4 +1,4 @@
-// === OPTICS CORE ENGINE - V1.5 (Corrected Detector Mapping) ===
+// === OPTICS CORE ENGINE - V1.6 (Simplified Ray Generation) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
 
 /**
@@ -86,7 +86,7 @@ export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
  * --- Unified Ray Tracing Engine ---
  */
 export function traceRays(config) {
-    const { rayGroup, opticalElements, laserSource, colorChart, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white', showPrincipalRays } = config;
+    const { rayGroup, opticalElements, laserSource, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white' } = config;
 
     // 1. Clear previous state
     while(rayGroup.children.length > 0){
@@ -105,122 +105,54 @@ export function traceRays(config) {
     let maxSensorIntensity = 0;
     let maxTrueColorIntensity = 0;
 
-    // 2. Generate initial rays
+    // 2. Generate initial rays (Laser Source Only)
     let initialRays = [];
-    
-    if (setupKey === 'camera-color-chart') {
-        const lens = opticalElements.find(el => el.type === 'thin-lens');
-        if (lens && colorChart) {
-            const chartWidth = colorChart.geometry.parameters.width;
-            const chartHeight = colorChart.geometry.parameters.height;
-            const lensRadius = lens.mesh.geometry.parameters.radiusTop;
-            
-            const numPointsX = 6;
-            const numPointsY = 3;
-            const fieldPoints = [];
+    const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
+    const beamSize = 1.0; 
 
-            const colors = [
-                '#726254', '#d49e81', '#5d80a3', '#63997a', '#a68cb8', '#c0c0c0',
-                '#b94c49', '#6f9954', '#4b66ac', '#a9629d', '#ca863e', '#808080',
-                '#343434', '#505050', '#6e6e6e', '#8c8c8c', '#aaaaaa', '#ffffff',
-            ];
-            const colorWavelengths = {
-                '#726254': [620, 540], '#d49e81': [630, 550], '#5d80a3': [470],
-                '#63997a': [530], '#a68cb8': [460, 640], '#c0c0c0': [450, 532, 650],
-                '#b94c49': [650], '#6f9954': [532], '#4b66ac': [460],
-                '#a9629d': [640, 460], '#ca863e': [610], '#808080': [450, 532, 650],
-                '#343434': [450, 532, 650], '#505050': [450, 532, 650], '#6e6e6e': [450, 532, 650],
-                '#8c8c8c': [450, 532, 650], '#aaaaaa': [450, 532, 650], '#ffffff': [450, 532, 650],
-            };
-
-            for (let i = 0; i < numPointsY; i++) {
-                for (let j = 0; j < numPointsX; j++) {
-                    const y = (i - (numPointsY - 1) / 2) * (chartHeight / (numPointsY - 1));
-                    const z = (j - (numPointsX - 1) / 2) * (chartWidth / (numPointsX - 1));
-                    const point = colorChart.position.clone().add(new THREE.Vector3(0, y, z));
-                    const colorIndex = i * numPointsX + j;
-                    fieldPoints.push({ point, wavelengths: colorWavelengths[colors[colorIndex]] });
+    wavelengths.forEach(wl => {
+        let patternRays = [];
+        const parallelDirection = new THREE.Vector3(1, 0, 0);
+        switch (laserPattern) {
+            case 'line':
+                for (let i = 0; i < rayCount; i++) {
+                    const yOffset = (rayCount === 1) ? 0 : -beamSize / 2 + beamSize * (i / (rayCount - 1));
+                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
                 }
-            }
-            
-            const lensCenter = lens.mesh.position.clone();
-            const topOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, lensRadius, 0));
-            const bottomOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, -lensRadius, 0));
-            const leftOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, 0, -lensRadius));
-            const rightOfLens = lens.mesh.position.clone().add(new THREE.Vector3(0, 0, lensRadius));
-
-            if (showPrincipalRays) {
-                const topPoint = fieldPoints[2];
-                const bottomPoint = fieldPoints[14];
-                const principalPoints = [topPoint, bottomPoint];
-                
-                principalPoints.forEach(fp => {
-                    fp.wavelengths.forEach(wl => {
-                        initialRays.push(new Ray(fp.point, lensCenter.clone().sub(fp.point).normalize(), wl));
-                        initialRays.push(new Ray(fp.point, topOfLens.clone().sub(fp.point).normalize(), wl));
-                        initialRays.push(new Ray(fp.point, bottomOfLens.clone().sub(fp.point).normalize(), wl));
-                    });
-                });
-            } else {
-                fieldPoints.forEach(fp => {
-                    fp.wavelengths.forEach(wl => {
-                        initialRays.push(new Ray(fp.point, lensCenter.clone().sub(fp.point).normalize(), wl));
-                        initialRays.push(new Ray(fp.point, topOfLens.clone().sub(fp.point).normalize(), wl));
-                        initialRays.push(new Ray(fp.point, bottomOfLens.clone().sub(fp.point).normalize(), wl));
-                        initialRays.push(new Ray(fp.point, leftOfLens.clone().sub(fp.point).normalize(), wl));
-                        initialRays.push(new Ray(fp.point, rightOfLens.clone().sub(fp.point).normalize(), wl));
-                    });
-                });
-            }
+                break;
+            case 'radial':
+                 for (let i = 0; i < rayCount; i++) {
+                    const angle = (i / rayCount) * 2 * Math.PI;
+                    const yOffset = Math.sin(angle) * beamSize / 2;
+                    const zOffset = Math.cos(angle) * beamSize / 2;
+                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
+                    patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                }
+                break;
+            case 'cross':
+                const halfCount = Math.floor(rayCount / 2);
+                for (let i = 0; i < halfCount; i++) {
+                    const yOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
+                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
+                }
+                for (let i = 0; i < halfCount; i++) {
+                    const zOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
+                    patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y, laserSource.position.z + zOffset), parallelDirection, wl));
+                }
+                break;
+            case 'disc':
+                for (let i = 0; i < rayCount; i++) {
+                    const radius = (beamSize / 2) * Math.sqrt(Math.random());
+                    const angle = Math.random() * 2 * Math.PI;
+                    const yOffset = radius * Math.sin(angle);
+                    const zOffset = radius * Math.cos(angle);
+                    const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
+                    patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                }
+                break;
         }
-    } else {
-        const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
-        const beamSize = 1.0; 
-    
-        wavelengths.forEach(wl => {
-            let patternRays = [];
-            const parallelDirection = new THREE.Vector3(1, 0, 0);
-            switch (laserPattern) {
-                case 'line':
-                    for (let i = 0; i < rayCount; i++) {
-                        const yOffset = (rayCount === 1) ? 0 : -beamSize / 2 + beamSize * (i / (rayCount - 1));
-                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
-                    }
-                    break;
-                case 'radial':
-                     for (let i = 0; i < rayCount; i++) {
-                        const angle = (i / rayCount) * 2 * Math.PI;
-                        const yOffset = Math.sin(angle) * beamSize / 2;
-                        const zOffset = Math.cos(angle) * beamSize / 2;
-                        const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
-                        patternRays.push(new Ray(startPoint, parallelDirection, wl));
-                    }
-                    break;
-                case 'cross':
-                    const halfCount = Math.floor(rayCount / 2);
-                    for (let i = 0; i < halfCount; i++) {
-                        const yOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
-                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z), parallelDirection, wl));
-                    }
-                    for (let i = 0; i < halfCount; i++) {
-                        const zOffset = (halfCount <= 1) ? 0 : -beamSize / 2 + beamSize * (i / (halfCount - 1));
-                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y, laserSource.position.z + zOffset), parallelDirection, wl));
-                    }
-                    break;
-                case 'disc':
-                    for (let i = 0; i < rayCount; i++) {
-                        const radius = (beamSize / 2) * Math.sqrt(Math.random());
-                        const angle = Math.random() * 2 * Math.PI;
-                        const yOffset = radius * Math.sin(angle);
-                        const zOffset = radius * Math.cos(angle);
-                        const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
-                        patternRays.push(new Ray(startPoint, parallelDirection, wl));
-                    }
-                    break;
-            }
-            initialRays.push(...patternRays);
-        });
-    }
+        initialRays.push(...patternRays);
+    });
 
 
     // 3. Unified Tracing Loop
@@ -254,7 +186,6 @@ export function traceRays(config) {
                     const detectorWidth = detector.geometry.parameters.width;
                     const detectorHeight = detector.geometry.parameters.height;
                     
-                    // BUG FIX: Use localPoint.x for the horizontal pixel coordinate.
                     const pixelX = Math.floor((localPoint.x / detectorWidth + 0.5) * pixelGridSize);
                     const pixelY = Math.floor((-localPoint.y / detectorHeight + 0.5) * pixelGridSize);
 
@@ -288,16 +219,10 @@ export function traceRays(config) {
             finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
         }
         
-        if (initialRays.length > 20 && index % 5 !== 0 && !showPrincipalRays && setupKey !== 'camera-color-chart') return;
+        if (initialRays.length > 20 && index % 5 !== 0) return;
         
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
-        
-        let rayColor;
-        if (setupKey === 'camera-color-chart') {
-            rayColor = wavelengthToRGB(finalPath.ray.wavelength);
-        } else {
-            rayColor = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
-        }
+        const rayColor = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
 
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating');
@@ -335,7 +260,7 @@ export function traceRays(config) {
                     if (maxTrueColorIntensity > 0) {
                         const pixel = trueColorIntensities[y][x];
                         if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
-                            if (wavelength === 'white' && setupKey !== 'camera-color-chart') {
+                            if (wavelength === 'white') {
                                 pixelCtx.fillStyle = 'white';
                             } else {
                                 const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
