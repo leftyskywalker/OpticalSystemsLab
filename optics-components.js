@@ -1,4 +1,4 @@
-// === OPTICS COMPONENTS - V2.1 (Fixed Merge & Unified Logic) ===
+// === OPTICS COMPONENTS - V2.2 (Color Propagation) ===
 // Contains the factory functions for creating optical elements.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
@@ -27,22 +27,17 @@ export function createLens(name, position, focalLength, elementGroup) {
 
                 // Check if the ray hits the physical lens
                 if (distFromCenter <= lensGeometry.parameters.radiusTop) {
-                    // --- UNIFIED LENS LOGIC ---
-                    // Use the general paraxial lens formula for all rays.
-                    // This correctly handles rays that are parallel, converging, or diverging.
                     const y = intersectPoint.y - this.mesh.position.y;
                     const z = intersectPoint.z - this.mesh.position.z;
 
-                    // The new angle = old angle - (height / focal length).
-                    // We approximate the angle by the y and z components of the direction vector.
                     const newDirY = ray.direction.y - y / this.focalLength;
                     const newDirZ = ray.direction.z - z / this.focalLength;
                     
                     const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
-                    return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
+                    // Propagate the original ray's color
+                    return { newRay: new Ray(intersectPoint, newDir, ray.wavelength, ray.color) };
                 }
             }
-            // Ray doesn't intersect or misses the lens
             return null;
         }
     };
@@ -73,7 +68,7 @@ export function createMirror(name, position, angle, envMap, elementGroup) {
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 if (Math.abs(localPoint.x) <= mirrorGeometry.parameters.width / 2 && Math.abs(localPoint.y) <= mirrorGeometry.parameters.height / 2) {
                     const reflectedDir = ray.direction.clone().reflect(normal);
-                    return { newRay: new Ray(intersectPoint, reflectedDir, ray.wavelength) };
+                    return { newRay: new Ray(intersectPoint, reflectedDir, ray.wavelength, ray.color) };
                 }
             }
             return null;
@@ -112,7 +107,7 @@ export function createSphericalMirror(name, position, radius, angle, envMap, ele
                     const displacement = intersectPoint.clone().sub(this.mesh.position);
                     const correction = displacement.multiplyScalar(-1 / focalLength);
                     const newDir = reflectedDir.add(correction).normalize();
-                    return { newRay: new Ray(intersectPoint, newDir, ray.wavelength) };
+                    return { newRay: new Ray(intersectPoint, newDir, ray.wavelength, ray.color) };
                 }
             }
             return null;
@@ -137,7 +132,8 @@ export function createDetector(name, position, elementGroup) {
             const intersectPoint = new THREE.Vector3();
             if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
                 if (ray.direction.dot(intersectPoint.clone().sub(ray.origin)) > 0) {
-                    return { intersection: intersectPoint, wavelength: ray.wavelength };
+                    // Pass the ray's color and wavelength along with the intersection point
+                    return { intersection: intersectPoint, wavelength: ray.wavelength, color: ray.color };
                 }
             }
             return null;
@@ -175,7 +171,7 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
                             const originalAngle = Math.atan2(ray.direction.y, ray.direction.x);
                             const newAngle = originalAngle + theta_m;
                             const newDir = new THREE.Vector3(Math.cos(newAngle), Math.sin(newAngle), ray.direction.z).normalize();
-                            const newRay = new Ray(intersectPoint, newDir, ray.wavelength);
+                            const newRay = new Ray(intersectPoint, newDir, ray.wavelength, ray.color);
                             newRay.diffractionOrder = m;
                             newRays.push(newRay);
                         }
@@ -196,8 +192,8 @@ export function createOpticalSlit(name, position, config, elementGroup) {
     const element = {
         mesh: null,
         type: 'optical-slit',
-        slitWidth: config.slitWidth,   // in cm
-        slitHeight: config.slitHeight, // in cm
+        slitWidth: config.slitWidth,
+        slitHeight: config.slitHeight,
 
         _rebuildMesh: function() {
             const plateShape = new THREE.Shape();
@@ -225,7 +221,7 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 this.mesh = new THREE.Mesh(geometry, material);
                 this.mesh.name = name;
                 this.mesh.position.set(position.x, position.y, position.z);
-                this.mesh.rotation.y = Math.PI / 2; // Face the -X direction
+                this.mesh.rotation.y = Math.PI / 2;
                 elementGroup.add(this.mesh);
             }
         },
@@ -236,12 +232,10 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 
-                // BUG FIX: The slit's geometry is defined in its local X and Y axes.
-                // The check must be against localPoint.x (width) and localPoint.y (height).
                 const isInsideSlit = Math.abs(localPoint.x) <= this.slitWidth / 2 && Math.abs(localPoint.y) <= this.slitHeight / 2;
 
                 if (isInsideSlit) {
-                    return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength) };
+                    return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength, ray.color) };
                 } else {
                     if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
                         return { intersection: intersectPoint }; // Block the ray
@@ -293,28 +287,23 @@ export function createAperture(name, position, config, elementGroup) {
         },
 
         processRay: function(ray, originalRay) {
-            // Find intersection with the plane of the aperture
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
-                // Convert intersection point to the mesh's local coordinates
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 
-                // The geometry is in the local XY plane. Check if inside the circular hole.
                 const distanceFromCenter = Math.sqrt(localPoint.x**2 + localPoint.y**2);
 
                 if (distanceFromCenter <= this.diameter / 2) {
                     // Ray passes through the aperture
-                    return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength) };
+                    return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength, ray.color) };
                 } else {
                     // Ray hits the plate, check if it's within the plate bounds before blocking
                     if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
-                        // Block the ray
                         return { intersection: intersectPoint };
                     }
                 }
             }
-            // Ray doesn't intersect or is outside the component
             return null;
         }
     };

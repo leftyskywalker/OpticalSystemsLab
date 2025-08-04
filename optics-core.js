@@ -1,14 +1,15 @@
-// === OPTICS CORE ENGINE - V2.0 (Corrected Pixel Sampling) ===
+// === OPTICS CORE ENGINE - V2.1 (Full Color Ray Tracing) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
  */
 export class Ray {
-    constructor(origin, direction, wavelength = 532) {
+    constructor(origin, direction, wavelength = 532, color = null) {
         this.origin = origin;
         this.direction = direction.normalize();
         this.wavelength = wavelength;
+        this.color = color; // Can be a THREE.Color object
     }
 }
 
@@ -124,25 +125,26 @@ export function traceRays(config) {
             const planeWidth = imageObject.geometry.parameters.width;
             const planeHeight = imageObject.geometry.parameters.height;
             
-            // Define a sampling rate to avoid generating too many rays.
-            // This will sample one pixel every N pixels in each direction, creating a uniform grid.
             const PIXEL_SAMPLING_RATE = 10; 
 
             for (let y = 0; y < image.height; y += PIXEL_SAMPLING_RATE) {
                 for (let x = 0; x < image.width; x += PIXEL_SAMPLING_RATE) {
                     const index = (y * image.width + x) * 4;
-                    const a = imageData[index + 3];
+                    const r = imageData[index] / 255;
+                    const g = imageData[index + 1] / 255;
+                    const b = imageData[index + 2] / 255;
+                    const a = imageData[index + 3] / 255;
 
                     // Only create a ray if the pixel is not fully transparent
                     if (a > 0) {
-                        // Map pixel coordinates (x,y) to the 3D plane's local coordinates
                         const localX = (x / image.width - 0.5) * planeWidth;
                         const localY = -(y / image.height - 0.5) * planeHeight; // Y is inverted in texture data
                         
                         const origin = imageObject.localToWorld(new THREE.Vector3(localX, localY, 0));
                         const direction = new THREE.Vector3(1, 0, 0); // Collimated ray
+                        const color = new THREE.Color(r, g, b);
                         
-                        initialRays.push(new Ray(origin, direction));
+                        initialRays.push(new Ray(origin, direction, 555, color)); // Use 555nm as a placeholder wavelength
                     }
                 }
             }
@@ -239,7 +241,8 @@ export function traceRays(config) {
                          maxSensorIntensity = Math.max(maxSensorIntensity, sensorPixel.r, sensorPixel.g, sensorPixel.b);
                          
                          const trueColorPixel = trueColorIntensities[pixelY][pixelX];
-                         const trueColor = wavelengthToRGB(result.wavelength);
+                         // Use the ray's explicit color if it exists, otherwise fall back to wavelength
+                         const trueColor = result.color ?? wavelengthToRGB(result.wavelength);
                          trueColorPixel.r += trueColor.r;
                          trueColorPixel.g += trueColor.g;
                          trueColorPixel.b += trueColor.b;
@@ -262,7 +265,14 @@ export function traceRays(config) {
         }
         
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
-        const rayColor = (wavelength === 'white' && setupKey !== 'camera-image-object') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
+        let rayColor;
+
+        // If the ray has its own color property, use it. Otherwise, derive from wavelength.
+        if (finalPath.ray.color) {
+            rayColor = finalPath.ray.color;
+        } else {
+            rayColor = (wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
+        }
 
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating');
@@ -300,14 +310,10 @@ export function traceRays(config) {
                     if (maxTrueColorIntensity > 0) {
                         const pixel = trueColorIntensities[y][x];
                         if (pixel.r > 0 || pixel.g > 0 || pixel.b > 0) {
-                            if (wavelength === 'white') {
-                                pixelCtx.fillStyle = 'white';
-                            } else {
-                                const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
-                                const g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
-                                const b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
-                                pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                            }
+                            const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
+                            const g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
+                            const b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
+                            pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                             pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
                         }
                     }
