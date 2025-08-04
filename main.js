@@ -85,11 +85,7 @@ const simulationConfig = {
     laserPattern: 'line',
     sensorType: 'grayscale',
     rayCount: 100,
-<<<<<<< HEAD
     backgroundColor: 'white'
-=======
-    backgroundColor: 'white' // Added for background state
->>>>>>> 55abef4 (Add background color toggle to UI and update ray tracing logic)
 };
 
 // === PIXEL VIEWER STATE ===
@@ -109,11 +105,7 @@ const sensorTypeContainer = document.getElementById('sensor-type-container');
 const sensorTypeSelect = document.getElementById('sensor-type-select');
 const rayCountSlider = document.getElementById('ray-count-slider');
 const rayCountValue = document.getElementById('ray-count-value');
-<<<<<<< HEAD
 const backgroundToggle = document.getElementById('bg-toggle');
-=======
-const backgroundToggle = document.getElementById('bg-toggle'); // Reference for new checkbox
->>>>>>> 55abef4 (Add background color toggle to UI and update ray tracing logic)
 
 // === CORE APPLICATION LOGIC ===
 
@@ -132,11 +124,7 @@ function updateSimulation() {
         laserPattern: simulationConfig.laserPattern,
         sensorType: simulationConfig.sensorType,
         rayCount: simulationConfig.rayCount,
-<<<<<<< HEAD
         backgroundColor: simulationConfig.backgroundColor,
-=======
-        backgroundColor: simulationConfig.backgroundColor, // Pass color state to engine
->>>>>>> 55abef4 (Add background color toggle to UI and update ray tracing logic)
         setupKey: document.getElementById('setup-select').value
     });
 }
@@ -235,10 +223,6 @@ sensorTypeSelect.addEventListener('change', (e) => {
     updateSimulation();
 });
 
-<<<<<<< HEAD
-=======
-// Listener for the background toggle
->>>>>>> 55abef4 (Add background color toggle to UI and update ray tracing logic)
 backgroundToggle.addEventListener('change', (e) => {
     simulationConfig.backgroundColor = e.target.checked ? 'black' : 'white';
     scene.background.set(simulationConfig.backgroundColor === 'black' ? 0x000000 : 0xffffff);

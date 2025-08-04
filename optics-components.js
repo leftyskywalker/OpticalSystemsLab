@@ -212,13 +212,13 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
 
 export function createOpticalSlit(name, position, config, elementGroup) {
     const material = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide });
-    const plateSize = 5; 
+    const plateSize = 5; // 5 cm plate
 
     const element = {
         mesh: null,
         type: 'optical-slit',
-        slitWidth: config.slitWidth,
-        slitHeight: config.slitHeight,
+        slitWidth: config.slitWidth,   // in cm
+        slitHeight: config.slitHeight, // in cm
 
         _rebuildMesh: function() {
             const plateShape = new THREE.Shape();
@@ -246,7 +246,7 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 this.mesh = new THREE.Mesh(geometry, material);
                 this.mesh.name = name;
                 this.mesh.position.set(position.x, position.y, position.z);
-                this.mesh.rotation.y = Math.PI / 2;
+                this.mesh.rotation.y = Math.PI / 2; // Face the -X direction
                 elementGroup.add(this.mesh);
             }
         },
@@ -257,17 +257,24 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 
+                // BUG FIX: The slit's geometry is defined in its local X and Y axes.
+                // The check must be against localPoint.x (width) and localPoint.y (height).
                 const isInsideSlit = Math.abs(localPoint.x) <= this.slitWidth / 2 && Math.abs(localPoint.y) <= this.slitHeight / 2;
 
                 if (isInsideSlit) {
                     return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength) };
                 } else {
                     if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
+<<<<<<< HEAD
                         return { intersection: intersectPoint };
+=======
+                        return { intersection: intersectPoint }; // Block the ray
+>>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
                     }
                 }
             }
             return null;
+<<<<<<< HEAD
         }
     };
 
@@ -345,3 +352,11 @@ processRay: function(ray, originalRay) {
     }
  }
 }
+=======
+        }
+    };
+
+    element._rebuildMesh(); // Initial build
+    return { mesh: element.mesh, element: element };
+}
+>>>>>>> parent of f83dda6 (Add circular aperture setup and controls for ray tracing simulation)
