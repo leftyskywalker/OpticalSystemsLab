@@ -1,6 +1,6 @@
-// === OPTICS CORE ENGINE - V2.15 (Sparse Cone Visualization) ===
+// === OPTICS CORE ENGINE - V2.16 (Anti-Aliasing Fix) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Simulation still traces all rays, but only visualizes a sparse subset of ray cones.
+// MODIFIED: Decoupled image calculation (direct backward trace) from visualization (forward trace) to fix artifacts.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -102,13 +102,8 @@ export function traceRays(config) {
         pixelCtx.fillRect(0, 0, pixelCanvas.width, pixelCanvas.height);
     }
     
-    const sensorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
-    const trueColorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
-    let maxSensorIntensity = 0;
-    let maxTrueColorIntensity = 0;
     let initialRays = [];
     
-    // --- Ray Generation Stage ---
     if (setupKey === 'camera-image-object') {
         const detector = opticalElements.find(el => el.type === 'detector');
         const lens = opticalElements.find(el => el.type === 'thin-lens');
@@ -124,7 +119,8 @@ export function traceRays(config) {
         imgCtx.drawImage(image, 0, 0, image.width, image.height);
         const imageData = imgCtx.getImageData(0, 0, image.width, image.height).data;
         
-        const sourceDataGrid = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null));
+        // --- Part 1: Direct Image Calculation via Backward Tracing ---
+        const pixelSize = pixelCanvas.width / pixelGridSize;
         for (let py = 0; py < pixelGridSize; py++) {
             for (let px = 0; px < pixelGridSize; px++) {
                 const localX = (px / pixelGridSize - 0.5) * detector.mesh.geometry.parameters.width;
@@ -148,43 +144,53 @@ export function traceRays(config) {
                 const u = (localIntersect.x / imageObject.geometry.parameters.width) + 0.5;
                 const v = 1.0 - ((localIntersect.y / imageObject.geometry.parameters.height) + 0.5);
 
+                let color = { r: 0, g: 0, b: 0 };
                 if (u >= 0 && u <= 1 && v >= 0 && v <= 1) {
                     const imgX = Math.floor(u * image.width);
                     const imgY = Math.floor(v * image.height);
                     const C_idx = (imgY * image.width + imgX) * 4;
-                    const color = new THREE.Color(imageData[C_idx] / 255, imageData[C_idx + 1] / 255, imageData[C_idx + 2] / 255);
-                    sourceDataGrid[py][px] = { origin: objectHitPoint, color: color };
+                    color = { r: imageData[C_idx], g: imageData[C_idx + 1], b: imageData[C_idx + 2] };
                 }
+                
+                pixelCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                pixelCtx.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
             }
+        }
+
+        // --- Part 2: Generate sparse forward rays for visualization ONLY ---
+        const CONES_TO_VISUALIZE = 30;
+        const visualizationSpacing = Math.floor((image.width * image.height) / CONES_TO_VISUALIZE);
+        const planeWidth = imageObject.geometry.parameters.width;
+        const planeHeight = imageObject.geometry.parameters.height;
+
+        for (let i = 0; i < CONES_TO_VISUALIZE; i++) {
+            const pixelIndex = i * visualizationSpacing;
+            const y = Math.floor(pixelIndex / image.width);
+            const x = pixelIndex % image.width;
+            
+            const localX = (x / image.width - 0.5) * planeWidth;
+            const localY = -(y / image.height - 0.5) * planeHeight;
+            const origin = imageObject.localToWorld(new THREE.Vector3(localX, localY, 0));
+
+            const C_idx = (y * image.width + x) * 4;
+            const color = new THREE.Color(imageData[C_idx] / 255, imageData[C_idx + 1] / 255, imageData[C_idx + 2] / 255);
+
+            const lensCenter = lens.mesh.position;
+            const lensRadius = lens.mesh.geometry.parameters.radiusTop;
+            const rayTargets = [
+                lensCenter,
+                lensCenter.clone().add(new THREE.Vector3(0, lensRadius, 0)), lensCenter.clone().add(new THREE.Vector3(0, -lensRadius, 0)),
+                lensCenter.clone().add(new THREE.Vector3(0, 0, lensRadius)), lensCenter.clone().add(new THREE.Vector3(0, 0, -lensRadius))
+            ];
+
+            rayTargets.forEach(target => {
+                const ray = new Ray(origin.clone(), target.clone().sub(origin), 555, color);
+                initialRays.push(ray);
+            });
         }
         
-        let coneId = 0;
-        for (let py = 0; py < pixelGridSize; py++) {
-            for (let px = 0; px < pixelGridSize; px++) {
-                const sourceData = sourceDataGrid[py][px];
-                coneId++; // Increment ID for each pixel, regardless of whether it's valid
-                if (sourceData) {
-                    const { origin, color } = sourceData;
-                    
-                    const lensCenter = lens.mesh.position;
-                    const lensRadius = lens.mesh.geometry.parameters.radiusTop;
-                    const rayTargets = [
-                        lensCenter,
-                        lensCenter.clone().add(new THREE.Vector3(0, lensRadius, 0)), 
-                        lensCenter.clone().add(new THREE.Vector3(0, -lensRadius, 0)),
-                        lensCenter.clone().add(new THREE.Vector3(0, 0, lensRadius)), 
-                        lensCenter.clone().add(new THREE.Vector3(0, 0, -lensRadius))
-                    ];
-                    
-                    rayTargets.forEach(target => {
-                        const ray = new Ray(origin.clone(), target.clone().sub(origin), 555, color);
-                        ray.coneId = coneId; // Tag each ray with its cone ID
-                        initialRays.push(ray);
-                    });
-                }
-            }
-        }
     } else {
+        // --- Original Ray Generation for other setups ---
         const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
         const beamSize = 1.0; 
         wavelengths.forEach(wl => {
@@ -233,6 +239,10 @@ export function traceRays(config) {
     }
     
     // --- MAIN FORWARD TRACING LOOP ---
+    const sensorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
+    const trueColorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
+    let maxSensorIntensity = 0;
+    let maxTrueColorIntensity = 0;
     let activePaths = initialRays.map(ray => ({ ray: ray, originalRay: ray, path: [ray.origin], terminated: false, hasSplit: false }));
 
     for (const element of opticalElements) {
@@ -255,7 +265,8 @@ export function traceRays(config) {
                     currentPath.path.push(result.intersection);
                     currentPath.terminated = true;
                     nextActivePaths.push(currentPath);
-                    if (element.type === 'detector') {
+                    if (element.type === 'detector' && setupKey !== 'camera-image-object') {
+                        // Accumulate intensity for non-camera-object setups
                         const detector = element.mesh;
                         const localPoint = detector.worldToLocal(result.intersection.clone());
                         const pixelX = Math.floor((localPoint.x / detector.geometry.parameters.width + 0.5) * pixelGridSize);
@@ -289,82 +300,77 @@ export function traceRays(config) {
     }
 
     // --- Visualization and Final Image Drawing ---
-    const CONES_TO_VISUALIZE = 30;
-    const visualizationSpacing = Math.floor((pixelGridSize * pixelGridSize) / CONES_TO_VISUALIZE);
-
     activePaths.forEach(finalPath => {
-        let shouldDraw = true;
-        // For camera setup, only draw a sparse selection of cones
-        if (setupKey === 'camera-image-object') {
-            const coneId = finalPath.originalRay.coneId;
-            if (coneId === undefined || (coneId % visualizationSpacing !== 0)) {
-                shouldDraw = false;
-            }
+        if (!finalPath.terminated) {
+            finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
         }
+        
+        const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
 
-        if(shouldDraw) {
-            if (!finalPath.terminated) {
-                finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
-            }
-            
-            const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
+        if (wavelength === 'white' && finalPath.hasSplit) {
+            const grating = opticalElements.find(el => el.type === 'grating');
+            if (grating) {
+                const gratingX = grating.mesh.position.x;
+                let splitIndex = finalPath.path.findIndex(p => Math.abs(p.x - gratingX) < 1e-6);
+                if (splitIndex === -1) splitIndex = 1;
 
-            if (wavelength === 'white' && finalPath.hasSplit) {
-                const grating = opticalElements.find(el => el.type === 'grating');
-                if (grating) {
-                    const gratingX = grating.mesh.position.x;
-                    let splitIndex = finalPath.path.findIndex(p => Math.abs(p.x - gratingX) < 1e-6);
-                    if (splitIndex === -1) splitIndex = 1;
+                const preSplitPath = finalPath.path.slice(0, splitIndex + 1);
+                const postSplitPath = finalPath.path.slice(splitIndex);
 
-                    const preSplitPath = finalPath.path.slice(0, splitIndex + 1);
-                    const postSplitPath = finalPath.path.slice(splitIndex);
-
-                    if (preSplitPath.length > 1) {
-                        rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), new THREE.LineBasicMaterial({ color: whiteLightColor, transparent: true, opacity: 0.6 })));
-                    }
-                    if (postSplitPath.length > 1) {
-                        const m = finalPath.ray.diffractionOrder;
-                        const color = (m === 0) ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
-                        rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 })));
-                    }
+                if (preSplitPath.length > 1) {
+                    rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), new THREE.LineBasicMaterial({ color: whiteLightColor, transparent: true, opacity: 0.6 })));
                 }
-            } else {
-                const rayColor = finalPath.originalRay.color || ((wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength));
-                rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(finalPath.path), new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.6 })));
+                if (postSplitPath.length > 1) {
+                    const m = finalPath.ray.diffractionOrder;
+                    const color = (m === 0) ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
+                    rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 })));
+                }
+                return;
             }
         }
+        
+        const rayColor = finalPath.originalRay.color || ((wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength));
+        rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(finalPath.path), new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.6 })));
     });
 
-    // Draw the final image on the 2D canvas from the accumulated intensities
-    const pixelSize = pixelCanvas.width / pixelGridSize;
-    for (let y = 0; y < pixelGridSize; y++) {
-        for (let x = 0; x < pixelGridSize; x++) {
-            const pixel = trueColorIntensities[y][x];
-            let r = 0, g = 0, b = 0;
-            // Normalize brightness
-            if (maxTrueColorIntensity > 0) {
-                r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
-                g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
-                b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
-            }
-            if (sensorType === 'bayer' && setupKey !== 'camera-image-object') {
-                const isTopRow = y % 2 === 0;
-                const isLeftColumn = x % 2 === 0;
-                if (isTopRow) {
-                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
-                    else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`;
+    if (pixelCtx && setupKey !== 'camera-image-object') {
+        const pixelSize = pixelCanvas.width / pixelGridSize;
+        for (let y = 0; y < pixelGridSize; y++) {
+            for (let x = 0; x < pixelGridSize; x++) {
+                 let r = 0, g = 0, b = 0;
+                 if (sensorType === 'demosaiced') {
+                    if (maxTrueColorIntensity > 0) {
+                        const pixel = trueColorIntensities[y][x];
+                        r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
+                        g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
+                        b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
+                    }
+                     pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                 } else {
-                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`;
-                    else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
+                    if (maxSensorIntensity > 0) {
+                        const pixel = sensorIntensities[y][x];
+                        r = Math.round(255 * (pixel.r / maxSensorIntensity));
+                        g = Math.round(255 * (pixel.g / maxSensorIntensity));
+                        b = Math.round(255 * (pixel.b / maxSensorIntensity));
+                        
+                        if (sensorType === 'bayer') {
+                            const isTopRow = y % 2 === 0;
+                            const isLeftColumn = x % 2 === 0;
+                            if (isTopRow) {
+                                if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
+                                else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`;
+                            } else {
+                                if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`;
+                                else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
+                            }
+                        } else { // Grayscale
+                            const gray = Math.round((r + g + b) / 3);
+                            pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
+                        }
+                    }
                 }
-            } else if (sensorType === 'grayscale' && setupKey !== 'camera-image-object') {
-                const gray = Math.round((r + g + b) / 3);
-                pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
+                 pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
             }
-            else { // Demosaiced or camera-image-object
-                pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            }
-            pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
         }
     }
 }
