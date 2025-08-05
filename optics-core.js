@@ -1,6 +1,6 @@
 // === OPTICS CORE ENGINE - V2.3 (Detector Bug Fix) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Implemented realistic ray cone generation for the image object setup.
+// MODIFIED: Simplified ray generation to only the 4 corners of the image object for verification.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -133,46 +133,47 @@ export function traceRays(config) {
             const planeWidth = imageObject.geometry.parameters.width;
             const planeHeight = imageObject.geometry.parameters.height;
             
-            const PIXEL_SAMPLING_RATE = 25; // Adjusted sampling rate for the new ray model
+            // --- MODIFICATION START: Sample from 4 corners only ---
+            const samplePoints = [
+                { x: 0, y: 0 },                             // Top-left
+                { x: image.width - 1, y: 0 },               // Top-right
+                { x: 0, y: image.height - 1 },              // Bottom-left
+                { x: image.width - 1, y: image.height - 1 } // Bottom-right
+            ];
 
-            for (let y = 0; y < image.height; y += PIXEL_SAMPLING_RATE) {
-                for (let x = 0; x < image.width; x += PIXEL_SAMPLING_RATE) {
-                    const index = (y * image.width + x) * 4;
-                    const r = imageData[index] / 255;
-                    const g = imageData[index + 1] / 255;
-                    const b = imageData[index + 2] / 255;
-                    const a = imageData[index + 3] / 255;
+            samplePoints.forEach(point => {
+                const { x, y } = point;
+                const index = (y * image.width + x) * 4;
+                const r = imageData[index] / 255;
+                const g = imageData[index + 1] / 255;
+                const b = imageData[index + 2] / 255;
+                const a = imageData[index + 3] / 255;
 
-                    if (a > 0) {
-                        const localX = (x / image.width - 0.5) * planeWidth;
-                        const localY = -(y / image.height - 0.5) * planeHeight;
-                        
-                        const origin = imageObject.localToWorld(new THREE.Vector3(localX, localY, 0));
-                        const color = new THREE.Color(r, g, b);
-                        
-                        // --- MODIFICATION START: Generate a cone of rays ---
+                if (a > 0) {
+                    const localX = (x / image.width - 0.5) * planeWidth;
+                    const localY = -(y / image.height - 0.5) * planeHeight;
+                    
+                    const origin = imageObject.localToWorld(new THREE.Vector3(localX, localY, 0));
+                    const color = new THREE.Color(r, g, b);
+                    
+                    // Generate a cone of rays for this corner point
+                    const chiefDir = lensCenter.clone().sub(origin).normalize();
+                    initialRays.push(new Ray(origin.clone(), chiefDir, 555, color));
 
-                        // 1. Chief Ray (from object point through lens center)
-                        const chiefDir = lensCenter.clone().sub(origin).normalize();
-                        initialRays.push(new Ray(origin.clone(), chiefDir, 555, color));
+                    const marginalPoints = [
+                        lensCenter.clone().add(new THREE.Vector3(0, lensRadius, 0)),
+                        lensCenter.clone().add(new THREE.Vector3(0, -lensRadius, 0)),
+                        lensCenter.clone().add(new THREE.Vector3(0, 0, lensRadius)),
+                        lensCenter.clone().add(new THREE.Vector3(0, 0, -lensRadius))
+                    ];
 
-                        // 2. Marginal Rays (from object point to the 4 edges of the lens)
-                        const marginalPoints = [
-                            lensCenter.clone().add(new THREE.Vector3(0, lensRadius, 0)),  // Top edge
-                            lensCenter.clone().add(new THREE.Vector3(0, -lensRadius, 0)), // Bottom edge
-                            lensCenter.clone().add(new THREE.Vector3(0, 0, lensRadius)),  // Right edge (from camera's perspective)
-                            lensCenter.clone().add(new THREE.Vector3(0, 0, -lensRadius))  // Left edge (from camera's perspective)
-                        ];
-
-                        marginalPoints.forEach(point => {
-                            const marginalDir = point.clone().sub(origin).normalize();
-                            initialRays.push(new Ray(origin.clone(), marginalDir, 555, color));
-                        });
-                        
-                        // --- MODIFICATION END ---
-                    }
+                    marginalPoints.forEach(point => {
+                        const marginalDir = point.clone().sub(origin).normalize();
+                        initialRays.push(new Ray(origin.clone(), marginalDir, 555, color));
+                    });
                 }
-            }
+            });
+            // --- MODIFICATION END ---
         }
     } else {
         const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];

@@ -1,12 +1,11 @@
-// === OPTICS COMPONENTS - V2.4 (Increased Lens Aperture) ===
+// === OPTICS COMPONENTS - V2.5 (Hybrid Lens Model) ===
 // Contains the factory functions for creating optical elements.
+// MODIFIED: Lens now uses a hybrid model: "perfect focus" for camera imaging and "paraxial" for all other setups.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
 export function createLens(name, position, focalLength, elementGroup) {
     const lensMaterial = new THREE.MeshPhysicalMaterial({ color: 0x22dd22, transparent: true, opacity: 0.75, roughness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.2 });
-    // FIX: Increased the lens radius from 2.5 to 3.5 to ensure it's large enough
-    // to capture all rays from the 5x4 image plane.
     const lensGeometry = new THREE.CylinderGeometry(3.5, 3.5, 0.2, 32);
     const mesh = new THREE.Mesh(lensGeometry, lensMaterial);
     mesh.name = name;
@@ -17,7 +16,7 @@ export function createLens(name, position, focalLength, elementGroup) {
 
     const element = {
         mesh: mesh, type: 'thin-lens', focalLength: focalLength,
-        processRay: function(ray, originalRay) {
+        processRay: function(ray, originalRay, config) { // Now receives the global config
             // Check if the ray is heading towards the lens plane
             if (ray.direction.x === 0) return null;
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
@@ -30,15 +29,43 @@ export function createLens(name, position, focalLength, elementGroup) {
 
                 // Check if the ray hits the physical lens
                 if (distFromCenter <= lensGeometry.parameters.radiusTop) {
-                    const y = intersectPoint.y - this.mesh.position.y;
-                    const z = intersectPoint.z - this.mesh.position.z;
 
-                    const newDirY = ray.direction.y - y / this.focalLength;
-                    const newDirZ = ray.direction.z - z / this.focalLength;
-                    
-                    const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
-                    // Propagate the original ray's color
-                    return { newRay: new Ray(intersectPoint, newDir, ray.wavelength, ray.color) };
+                    // --- HYBRID MODEL SELECTION ---
+                    // Use "perfect focus" model for the camera image setup to remove aberration.
+                    // Use classic "paraxial" model for all other setups to ensure correct collimation.
+
+                    if (config && config.setupKey === 'camera-image-object') {
+                        // MODEL 1: "Perfect Focus" using Thin Lens Equation
+                        const objectPoint = originalRay.origin;
+                        const lensPosition = this.mesh.position;
+                        const so = Math.abs(objectPoint.x - lensPosition.x);
+
+                        if (Math.abs(so - this.focalLength) < 1e-6) {
+                            const undeviatedRayDirection = lensPosition.clone().sub(objectPoint).normalize();
+                            return { newRay: new Ray(intersectPoint, undeviatedRayDirection, ray.wavelength, ray.color) };
+                        }
+                        
+                        const si = 1 / (1 / this.focalLength - 1 / so);
+                        const M = -si / so;
+                        const ho_y = objectPoint.y - lensPosition.y;
+                        const ho_z = objectPoint.z - lensPosition.z;
+                        const hi_y = ho_y * M;
+                        const hi_z = ho_z * M;
+                        const imagePoint = new THREE.Vector3(lensPosition.x + si, lensPosition.y + hi_y, lensPosition.z + hi_z);
+                        const newDir = imagePoint.clone().sub(intersectPoint).normalize();
+                        
+                        return { newRay: new Ray(intersectPoint, newDir, ray.wavelength, ray.color) };
+
+                    } else {
+                        // MODEL 2: Classic Paraxial Ray Tracing
+                        const y = intersectPoint.y - this.mesh.position.y;
+                        const z = intersectPoint.z - this.mesh.position.z;
+                        const newDirY = ray.direction.y - y / this.focalLength;
+                        const newDirZ = ray.direction.z - z / this.focalLength;
+                        const newDir = new THREE.Vector3(ray.direction.x, newDirY, newDirZ).normalize();
+
+                        return { newRay: new Ray(intersectPoint, newDir, ray.wavelength, ray.color) };
+                    }
                 }
             }
             return null;
