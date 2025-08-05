@@ -1,5 +1,6 @@
 // === OPTICS CORE ENGINE - V2.3 (Detector Bug Fix) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
+// MODIFIED: Implemented realistic ray cone generation for the image object setup.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -111,6 +112,14 @@ export function traceRays(config) {
     let activePaths = [];
 
     if (setupKey === 'camera-image-object') {
+        const lensElement = opticalElements.find(el => el.type === 'thin-lens');
+        if (!lensElement) {
+             console.error("Camera setup requires a lens, but none was found.");
+             return; 
+        }
+        const lensCenter = lensElement.mesh.position;
+        const lensRadius = lensElement.mesh.geometry.parameters.radiusTop;
+
         const texture = imageObject.material.map;
         if (texture && texture.image && texture.image.width > 0) {
             const image = texture.image;
@@ -124,7 +133,7 @@ export function traceRays(config) {
             const planeWidth = imageObject.geometry.parameters.width;
             const planeHeight = imageObject.geometry.parameters.height;
             
-            const PIXEL_SAMPLING_RATE = 10; 
+            const PIXEL_SAMPLING_RATE = 25; // Adjusted sampling rate for the new ray model
 
             for (let y = 0; y < image.height; y += PIXEL_SAMPLING_RATE) {
                 for (let x = 0; x < image.width; x += PIXEL_SAMPLING_RATE) {
@@ -139,10 +148,28 @@ export function traceRays(config) {
                         const localY = -(y / image.height - 0.5) * planeHeight;
                         
                         const origin = imageObject.localToWorld(new THREE.Vector3(localX, localY, 0));
-                        const direction = new THREE.Vector3(1, 0, 0);
                         const color = new THREE.Color(r, g, b);
                         
-                        initialRays.push(new Ray(origin, direction, 555, color));
+                        // --- MODIFICATION START: Generate a cone of rays ---
+
+                        // 1. Chief Ray (from object point through lens center)
+                        const chiefDir = lensCenter.clone().sub(origin).normalize();
+                        initialRays.push(new Ray(origin.clone(), chiefDir, 555, color));
+
+                        // 2. Marginal Rays (from object point to the 4 edges of the lens)
+                        const marginalPoints = [
+                            lensCenter.clone().add(new THREE.Vector3(0, lensRadius, 0)),  // Top edge
+                            lensCenter.clone().add(new THREE.Vector3(0, -lensRadius, 0)), // Bottom edge
+                            lensCenter.clone().add(new THREE.Vector3(0, 0, lensRadius)),  // Right edge (from camera's perspective)
+                            lensCenter.clone().add(new THREE.Vector3(0, 0, -lensRadius))  // Left edge (from camera's perspective)
+                        ];
+
+                        marginalPoints.forEach(point => {
+                            const marginalDir = point.clone().sub(origin).normalize();
+                            initialRays.push(new Ray(origin.clone(), marginalDir, 555, color));
+                        });
+                        
+                        // --- MODIFICATION END ---
                     }
                 }
             }
