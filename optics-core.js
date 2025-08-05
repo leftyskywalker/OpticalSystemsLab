@@ -1,6 +1,6 @@
-// === OPTICS CORE ENGINE - V2.16 (Anti-Aliasing Fix) ===
+// === OPTICS CORE ENGINE - V2.17 (Visualization Fix) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Decoupled image calculation (direct backward trace) from visualization (forward trace) to fix artifacts.
+// MODIFIED: Restored correct forward-ray visualization while keeping the direct backward-trace for the final image.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -120,6 +120,7 @@ export function traceRays(config) {
         const imageData = imgCtx.getImageData(0, 0, image.width, image.height).data;
         
         // --- Part 1: Direct Image Calculation via Backward Tracing ---
+        const sourceDataGrid = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null));
         const pixelSize = pixelCanvas.width / pixelGridSize;
         for (let py = 0; py < pixelGridSize; py++) {
             for (let px = 0; px < pixelGridSize; px++) {
@@ -150,6 +151,7 @@ export function traceRays(config) {
                     const imgY = Math.floor(v * image.height);
                     const C_idx = (imgY * image.width + imgX) * 4;
                     color = { r: imageData[C_idx], g: imageData[C_idx + 1], b: imageData[C_idx + 2] };
+                    sourceDataGrid[py][px] = { origin: objectHitPoint, color: new THREE.Color(color.r/255, color.g/255, color.b/255) };
                 }
                 
                 pixelCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
@@ -159,36 +161,27 @@ export function traceRays(config) {
 
         // --- Part 2: Generate sparse forward rays for visualization ONLY ---
         const CONES_TO_VISUALIZE = 30;
-        const visualizationSpacing = Math.floor((image.width * image.height) / CONES_TO_VISUALIZE);
-        const planeWidth = imageObject.geometry.parameters.width;
-        const planeHeight = imageObject.geometry.parameters.height;
-
-        for (let i = 0; i < CONES_TO_VISUALIZE; i++) {
-            const pixelIndex = i * visualizationSpacing;
-            const y = Math.floor(pixelIndex / image.width);
-            const x = pixelIndex % image.width;
-            
-            const localX = (x / image.width - 0.5) * planeWidth;
-            const localY = -(y / image.height - 0.5) * planeHeight;
-            const origin = imageObject.localToWorld(new THREE.Vector3(localX, localY, 0));
-
-            const C_idx = (y * image.width + x) * 4;
-            const color = new THREE.Color(imageData[C_idx] / 255, imageData[C_idx + 1] / 255, imageData[C_idx + 2] / 255);
-
-            const lensCenter = lens.mesh.position;
-            const lensRadius = lens.mesh.geometry.parameters.radiusTop;
-            const rayTargets = [
-                lensCenter,
-                lensCenter.clone().add(new THREE.Vector3(0, lensRadius, 0)), lensCenter.clone().add(new THREE.Vector3(0, -lensRadius, 0)),
-                lensCenter.clone().add(new THREE.Vector3(0, 0, lensRadius)), lensCenter.clone().add(new THREE.Vector3(0, 0, -lensRadius))
-            ];
-
-            rayTargets.forEach(target => {
-                const ray = new Ray(origin.clone(), target.clone().sub(origin), 555, color);
-                initialRays.push(ray);
-            });
+        const visualizationSpacing = Math.floor((pixelGridSize * pixelGridSize) / CONES_TO_VISUALIZE);
+        for (let py = 0; py < pixelGridSize; py++) {
+            for (let px = 0; px < pixelGridSize; px++) {
+                 if ((py * pixelGridSize + px) % visualizationSpacing === 0) {
+                    const sourceData = sourceDataGrid[py][px];
+                    if (sourceData) {
+                         const { origin, color } = sourceData;
+                         const lensCenter = lens.mesh.position;
+                         const lensRadius = lens.mesh.geometry.parameters.radiusTop;
+                         const rayTargets = [
+                             lensCenter,
+                             lensCenter.clone().add(new THREE.Vector3(0, lensRadius, 0)), lensCenter.clone().add(new THREE.Vector3(0, -lensRadius, 0)),
+                             lensCenter.clone().add(new THREE.Vector3(0, 0, lensRadius)), lensCenter.clone().add(new THREE.Vector3(0, 0, -lensRadius))
+                         ];
+                         rayTargets.forEach(target => {
+                             initialRays.push(new Ray(origin.clone(), target.clone().sub(origin), 555, color));
+                         });
+                    }
+                 }
+            }
         }
-        
     } else {
         // --- Original Ray Generation for other setups ---
         const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
@@ -238,7 +231,7 @@ export function traceRays(config) {
         });
     }
     
-    // --- MAIN FORWARD TRACING LOOP ---
+    // --- MAIN FORWARD TRACING LOOP (processes visualization rays and other setups) ---
     const sensorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
     const trueColorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
     let maxSensorIntensity = 0;
@@ -265,8 +258,8 @@ export function traceRays(config) {
                     currentPath.path.push(result.intersection);
                     currentPath.terminated = true;
                     nextActivePaths.push(currentPath);
+                    // For non-camera setups, accumulate intensity for the 2D canvas
                     if (element.type === 'detector' && setupKey !== 'camera-image-object') {
-                        // Accumulate intensity for non-camera-object setups
                         const detector = element.mesh;
                         const localPoint = detector.worldToLocal(result.intersection.clone());
                         const pixelX = Math.floor((localPoint.x / detector.geometry.parameters.width + 0.5) * pixelGridSize);
@@ -299,7 +292,7 @@ export function traceRays(config) {
         activePaths = nextActivePaths;
     }
 
-    // --- Visualization and Final Image Drawing ---
+    // --- Visualization Drawing ---
     activePaths.forEach(finalPath => {
         if (!finalPath.terminated) {
             finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
@@ -333,6 +326,7 @@ export function traceRays(config) {
         rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(finalPath.path), new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.6 })));
     });
 
+    // --- Final 2D Canvas Drawing (for non-camera setups) ---
     if (pixelCtx && setupKey !== 'camera-image-object') {
         const pixelSize = pixelCanvas.width / pixelGridSize;
         for (let y = 0; y < pixelGridSize; y++) {
