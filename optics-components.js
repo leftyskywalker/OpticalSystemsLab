@@ -1,11 +1,13 @@
-// === OPTICS COMPONENTS - V2.2 (Color Propagation) ===
+// === OPTICS COMPONENTS - V2.4 (Increased Lens Aperture) ===
 // Contains the factory functions for creating optical elements.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
 export function createLens(name, position, focalLength, elementGroup) {
     const lensMaterial = new THREE.MeshPhysicalMaterial({ color: 0x22dd22, transparent: true, opacity: 0.75, roughness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.2 });
-    const lensGeometry = new THREE.CylinderGeometry(2.5, 2.5, 0.2, 32);
+    // FIX: Increased the lens radius from 2.5 to 3.5 to ensure it's large enough
+    // to capture all rays from the 5x4 image plane.
+    const lensGeometry = new THREE.CylinderGeometry(3.5, 3.5, 0.2, 32);
     const mesh = new THREE.Mesh(lensGeometry, lensMaterial);
     mesh.name = name;
     mesh.position.set(position.x, position.y, position.z);
@@ -23,7 +25,8 @@ export function createLens(name, position, focalLength, elementGroup) {
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const intersectPointLocal = this.mesh.worldToLocal(intersectPoint.clone());
-                const distFromCenter = Math.sqrt(intersectPointLocal.y**2 + intersectPointLocal.z**2);
+                
+                const distFromCenter = Math.sqrt(intersectPointLocal.x**2 + intersectPointLocal.z**2);
 
                 // Check if the ray hits the physical lens
                 if (distFromCenter <= lensGeometry.parameters.radiusTop) {
