@@ -1,6 +1,6 @@
-// === OPTICS CORE ENGINE - V2.14 (Grating Visualization Fix) ===
+// === OPTICS CORE ENGINE - V2.15 (Sparse Cone Visualization) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Restored sophisticated drawing logic for diffraction gratings.
+// MODIFIED: Simulation still traces all rays, but only visualizes a sparse subset of ray cones.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -158,9 +158,11 @@ export function traceRays(config) {
             }
         }
         
+        let coneId = 0;
         for (let py = 0; py < pixelGridSize; py++) {
             for (let px = 0; px < pixelGridSize; px++) {
                 const sourceData = sourceDataGrid[py][px];
+                coneId++; // Increment ID for each pixel, regardless of whether it's valid
                 if (sourceData) {
                     const { origin, color } = sourceData;
                     
@@ -175,7 +177,9 @@ export function traceRays(config) {
                     ];
                     
                     rayTargets.forEach(target => {
-                        initialRays.push(new Ray(origin.clone(), target.clone().sub(origin), 555, color));
+                        const ray = new Ray(origin.clone(), target.clone().sub(origin), 555, color);
+                        ray.coneId = coneId; // Tag each ray with its cone ID
+                        initialRays.push(ray);
                     });
                 }
             }
@@ -285,82 +289,82 @@ export function traceRays(config) {
     }
 
     // --- Visualization and Final Image Drawing ---
+    const CONES_TO_VISUALIZE = 30;
+    const visualizationSpacing = Math.floor((pixelGridSize * pixelGridSize) / CONES_TO_VISUALIZE);
+
     activePaths.forEach(finalPath => {
-        if (!finalPath.terminated) {
-            finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
-        }
-        
-        const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
-
-        // FIX: Restore sophisticated drawing logic for diffraction gratings
-        if (wavelength === 'white' && finalPath.hasSplit) {
-            const grating = opticalElements.find(el => el.type === 'grating');
-            if (grating) {
-                const gratingX = grating.mesh.position.x;
-                let splitIndex = finalPath.path.findIndex(p => Math.abs(p.x - gratingX) < 1e-6);
-                if (splitIndex === -1) splitIndex = 1;
-
-                const preSplitPath = finalPath.path.slice(0, splitIndex + 1);
-                const postSplitPath = finalPath.path.slice(splitIndex);
-
-                if (preSplitPath.length > 1) {
-                    const whiteMaterial = new THREE.LineBasicMaterial({ color: whiteLightColor, transparent: true, opacity: 0.6 });
-                    rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), whiteMaterial));
-                }
-                if (postSplitPath.length > 1) {
-                    const m = finalPath.ray.diffractionOrder;
-                    const color = (m === 0) ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
-                    const colorMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 });
-                    rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), colorMaterial));
-                }
-                return; // End processing for this path
+        let shouldDraw = true;
+        // For camera setup, only draw a sparse selection of cones
+        if (setupKey === 'camera-image-object') {
+            const coneId = finalPath.originalRay.coneId;
+            if (coneId === undefined || (coneId % visualizationSpacing !== 0)) {
+                shouldDraw = false;
             }
         }
-        
-        // Default drawing logic for all other cases
-        const rayColor = finalPath.ray.color || ((wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength));
-        const beamMaterial = new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.6 });
-        rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(finalPath.path), beamMaterial));
+
+        if(shouldDraw) {
+            if (!finalPath.terminated) {
+                finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
+            }
+            
+            const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
+
+            if (wavelength === 'white' && finalPath.hasSplit) {
+                const grating = opticalElements.find(el => el.type === 'grating');
+                if (grating) {
+                    const gratingX = grating.mesh.position.x;
+                    let splitIndex = finalPath.path.findIndex(p => Math.abs(p.x - gratingX) < 1e-6);
+                    if (splitIndex === -1) splitIndex = 1;
+
+                    const preSplitPath = finalPath.path.slice(0, splitIndex + 1);
+                    const postSplitPath = finalPath.path.slice(splitIndex);
+
+                    if (preSplitPath.length > 1) {
+                        rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), new THREE.LineBasicMaterial({ color: whiteLightColor, transparent: true, opacity: 0.6 })));
+                    }
+                    if (postSplitPath.length > 1) {
+                        const m = finalPath.ray.diffractionOrder;
+                        const color = (m === 0) ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
+                        rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 })));
+                    }
+                }
+            } else {
+                const rayColor = finalPath.originalRay.color || ((wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength));
+                rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(finalPath.path), new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.6 })));
+            }
+        }
     });
 
-    if (pixelCtx) {
-        const pixelSize = pixelCanvas.width / pixelGridSize;
-        for (let y = 0; y < pixelGridSize; y++) {
-            for (let x = 0; x < pixelGridSize; x++) {
-                if (sensorType === 'demosaiced') {
-                    if (maxTrueColorIntensity > 0) {
-                        const pixel = trueColorIntensities[y][x];
-                        const r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
-                        const g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
-                        const b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
-                        pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                        pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-                    }
-                } else {
-                    if (maxSensorIntensity > 0) {
-                        const pixel = sensorIntensities[y][x];
-                        const r = Math.round(255 * (pixel.r / maxSensorIntensity));
-                        const g = Math.round(255 * (pixel.g / maxSensorIntensity));
-                        const b = Math.round(255 * (pixel.b / maxSensorIntensity));
-                        
-                        if (sensorType === 'bayer') {
-                            const isTopRow = y % 2 === 0;
-                            const isLeftColumn = x % 2 === 0;
-                            if (isTopRow) {
-                                if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
-                                else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`;
-                            } else {
-                                if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`;
-                                else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
-                            }
-                        } else { // Grayscale
-                            const gray = Math.round((r + g + b) / 3);
-                            pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
-                        }
-                        pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-                    }
-                }
+    // Draw the final image on the 2D canvas from the accumulated intensities
+    const pixelSize = pixelCanvas.width / pixelGridSize;
+    for (let y = 0; y < pixelGridSize; y++) {
+        for (let x = 0; x < pixelGridSize; x++) {
+            const pixel = trueColorIntensities[y][x];
+            let r = 0, g = 0, b = 0;
+            // Normalize brightness
+            if (maxTrueColorIntensity > 0) {
+                r = Math.round(255 * (pixel.r / maxTrueColorIntensity));
+                g = Math.round(255 * (pixel.g / maxTrueColorIntensity));
+                b = Math.round(255 * (pixel.b / maxTrueColorIntensity));
             }
+            if (sensorType === 'bayer' && setupKey !== 'camera-image-object') {
+                const isTopRow = y % 2 === 0;
+                const isLeftColumn = x % 2 === 0;
+                if (isTopRow) {
+                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
+                    else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`;
+                } else {
+                    if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`;
+                    else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
+                }
+            } else if (sensorType === 'grayscale' && setupKey !== 'camera-image-object') {
+                const gray = Math.round((r + g + b) / 3);
+                pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
+            }
+            else { // Demosaiced or camera-image-object
+                pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            }
+            pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
         }
     }
 }
