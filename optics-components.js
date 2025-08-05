@@ -1,6 +1,6 @@
-// === OPTICS COMPONENTS - V2.5 (Hybrid Lens Model) ===
+// === OPTICS COMPONENTS - V2.6 (Floating Point Fix) ===
 // Contains the factory functions for creating optical elements.
-// MODIFIED: Lens now uses a hybrid model: "perfect focus" for camera imaging and "paraxial" for all other setups.
+// MODIFIED: Added a small tolerance to the lens radius check to fix floating-point errors with marginal rays.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
@@ -27,13 +27,11 @@ export function createLens(name, position, focalLength, elementGroup) {
                 
                 const distFromCenter = Math.sqrt(intersectPointLocal.x**2 + intersectPointLocal.z**2);
 
-                // Check if the ray hits the physical lens
-                if (distFromCenter <= lensGeometry.parameters.radiusTop) {
+                // --- FIX: Add a small epsilon (1e-6) to the radius check ---
+                // This prevents floating-point errors where a ray aimed exactly at the edge is missed.
+                if (distFromCenter <= lensGeometry.parameters.radiusTop + 1e-6) {
 
                     // --- HYBRID MODEL SELECTION ---
-                    // Use "perfect focus" model for the camera image setup to remove aberration.
-                    // Use classic "paraxial" model for all other setups to ensure correct collimation.
-
                     if (config && config.setupKey === 'camera-image-object') {
                         // MODEL 1: "Perfect Focus" using Thin Lens Equation
                         const objectPoint = originalRay.origin;
