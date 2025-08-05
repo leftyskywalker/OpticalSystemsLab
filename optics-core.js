@@ -1,6 +1,7 @@
-// === OPTICS CORE ENGINE - V2.17 (Visualization Fix) ===
+// === OPTICS CORE ENGINE - V2.18 (Defocus Simulation) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Restored correct forward-ray visualization while keeping the direct backward-trace for the final image.
+// MODIFIED: Implemented a two-pass rendering system for the 'camera-image-object' 
+// setup to simulate realistic defocus effects based on focal length.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -119,9 +120,10 @@ export function traceRays(config) {
         imgCtx.drawImage(image, 0, 0, image.width, image.height);
         const imageData = imgCtx.getImageData(0, 0, image.width, image.height).data;
         
-        // --- Part 1: Direct Image Calculation via Backward Tracing ---
+        // --- Pass 1: Generate the "perfectly focused" image and source data grid ---
+        const perfectImageGrid = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null));
         const sourceDataGrid = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null));
-        const pixelSize = pixelCanvas.width / pixelGridSize;
+
         for (let py = 0; py < pixelGridSize; py++) {
             for (let px = 0; px < pixelGridSize; px++) {
                 const localX = (px / pixelGridSize - 0.5) * detector.mesh.geometry.parameters.width;
@@ -131,12 +133,14 @@ export function traceRays(config) {
                 const dirToLens = lens.mesh.position.clone().sub(sensorPoint).normalize();
                 const intersectOnLens = sensorPoint.clone().add(dirToLens.clone().multiplyScalar((lens.mesh.position.x - sensorPoint.x) / dirToLens.x));
 
-                const so = Math.abs(sensorPoint.x - lens.mesh.position.x);
-                const si = 1 / (1 / lens.focalLength - 1 / so);
-                const M = -si / so;
-                const ho_y = sensorPoint.y - lens.mesh.position.y;
-                const ho_z = sensorPoint.z - lens.mesh.position.z;
-                const objectPlanePoint = new THREE.Vector3(lens.mesh.position.x + si, lens.mesh.position.y + (ho_y * M), lens.mesh.position.z + (ho_z * M));
+                // Note: The original backward trace logic here is geometrically unconventional but produces a coherent image.
+                // We will use it as the basis for the "perfect" image before applying the physically-based blur.
+                const so_calc = Math.abs(sensorPoint.x - lens.mesh.position.x);
+                const si_calc = 1 / (1 / lens.focalLength - 1 / so_calc);
+                const M = -si_calc / so_calc;
+                const ho_y_calc = sensorPoint.y - lens.mesh.position.y;
+                const ho_z_calc = sensorPoint.z - lens.mesh.position.z;
+                const objectPlanePoint = new THREE.Vector3(lens.mesh.position.x + si_calc, lens.mesh.position.y + (ho_y_calc * M), lens.mesh.position.z + (ho_z_calc * M));
 
                 const dirFromLens = objectPlanePoint.clone().sub(intersectOnLens).normalize();
                 const objectHitPoint = intersectOnLens.clone().add(dirFromLens.clone().multiplyScalar((imageObject.position.x - intersectOnLens.x) / dirFromLens.x));
@@ -151,22 +155,77 @@ export function traceRays(config) {
                     const imgY = Math.floor(v * image.height);
                     const C_idx = (imgY * image.width + imgX) * 4;
                     color = { r: imageData[C_idx], g: imageData[C_idx + 1], b: imageData[C_idx + 2] };
-                    sourceDataGrid[py][px] = { origin: objectHitPoint, color: new THREE.Color(color.r/255, color.g/255, color.b/255) };
                 }
                 
-                pixelCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                perfectImageGrid[py][px] = color;
+                sourceDataGrid[py][px] = { origin: objectHitPoint, color: new THREE.Color(color.r/255, color.g/255, color.b/255) };
+            }
+        }
+        
+        // --- Pass 2: Calculate defocus blur (Circle of Confusion) and render final image ---
+        const so_center = Math.abs(imageObject.position.x - lens.mesh.position.x);
+        const si_focused = 1 / (1 / lens.focalLength - 1 / so_center);
+        const si_actual = Math.abs(detector.mesh.position.x - lens.mesh.position.x);
+        const R_lens = lens.mesh.geometry.parameters.radiusTop;
+        
+        let coc_radius_world = 0;
+        if (Math.abs(si_focused) > 1e-6) {
+             coc_radius_world = (R_lens * Math.abs(si_actual - si_focused)) / Math.abs(si_focused);
+        }
+        
+        const detector_pixel_size_world = detector.mesh.geometry.parameters.width / pixelGridSize;
+        const coc_radius_pixels = coc_radius_world / detector_pixel_size_world;
+        const coc_radius_pixels_sq = coc_radius_pixels * coc_radius_pixels;
+        const pixelSize = pixelCanvas.width / pixelGridSize;
+
+        for (let py = 0; py < pixelGridSize; py++) {
+            for (let px = 0; px < pixelGridSize; px++) {
+                if (coc_radius_pixels < 0.5) { // If blur is negligible, draw the perfect pixel
+                     const color = perfectImageGrid[py][px];
+                     pixelCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                } else {
+                    let totalColor = { r: 0, g: 0, b: 0 };
+                    let sampleCount = 0;
+                    
+                    const startY = Math.max(0, Math.floor(py - coc_radius_pixels));
+                    const endY = Math.min(pixelGridSize - 1, Math.ceil(py + coc_radius_pixels));
+                    const startX = Math.max(0, Math.floor(px - coc_radius_pixels));
+                    const endX = Math.min(pixelGridSize - 1, Math.ceil(px + coc_radius_pixels));
+                    
+                    for (let y = startY; y <= endY; y++) {
+                        for (let x = startX; x <= endX; x++) {
+                            const dx = x - px;
+                            const dy = y - py;
+                            if (dx*dx + dy*dy <= coc_radius_pixels_sq) {
+                                const sampleColor = perfectImageGrid[y][x];
+                                totalColor.r += sampleColor.r;
+                                totalColor.g += sampleColor.g;
+                                totalColor.b += sampleColor.b;
+                                sampleCount++;
+                            }
+                        }
+                    }
+                    
+                    let finalColor = { r: 0, g: 0, b: 0 };
+                    if (sampleCount > 0) {
+                        finalColor.r = Math.round(totalColor.r / sampleCount);
+                        finalColor.g = Math.round(totalColor.g / sampleCount);
+                        finalColor.b = Math.round(totalColor.b / sampleCount);
+                    }
+                    pixelCtx.fillStyle = `rgb(${finalColor.r}, ${finalColor.g}, ${finalColor.b})`;
+                }
                 pixelCtx.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
             }
         }
 
-        // --- Part 2: Generate sparse forward rays for visualization ONLY ---
+        // --- Part 3: Generate sparse forward rays for visualization ONLY ---
         const CONES_TO_VISUALIZE = 30;
         const visualizationSpacing = Math.floor((pixelGridSize * pixelGridSize) / CONES_TO_VISUALIZE);
         for (let py = 0; py < pixelGridSize; py++) {
             for (let px = 0; px < pixelGridSize; px++) {
                  if ((py * pixelGridSize + px) % visualizationSpacing === 0) {
                     const sourceData = sourceDataGrid[py][px];
-                    if (sourceData) {
+                    if (sourceData && (sourceData.color.r > 0 || sourceData.color.g > 0 || sourceData.color.b > 0)) {
                          const { origin, color } = sourceData;
                          const lensCenter = lens.mesh.position;
                          const lensRadius = lens.mesh.geometry.parameters.radiusTop;
