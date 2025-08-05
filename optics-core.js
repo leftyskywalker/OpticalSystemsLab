@@ -1,6 +1,6 @@
-// === OPTICS CORE ENGINE - V2.13 (Bug Fixes) ===
+// === OPTICS CORE ENGINE - V2.14 (Grating Visualization Fix) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Fixed white light color rendering and restored sensor mode functionality.
+// MODIFIED: Restored sophisticated drawing logic for diffraction gratings.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -258,26 +258,20 @@ export function traceRays(config) {
                         const pixelY = Math.floor((-localPoint.y / detector.geometry.parameters.height + 0.5) * pixelGridSize);
 
                         if (pixelX >= 0 && pixelX < pixelGridSize && pixelY >= 0 && pixelY < pixelGridSize) {
-                            // FIX: Correctly populate both sensor and true color intensities
                              const sensorPixel = sensorIntensities[pixelY][pixelX];
                              const trueColorPixel = trueColorIntensities[pixelY][pixelX];
 
-                             if (result.color) { // From camera-image-object
-                                 sensorPixel.r += result.color.r;
-                                 sensorPixel.g += result.color.g;
-                                 sensorPixel.b += result.color.b;
-                                 trueColorPixel.r += result.color.r;
-                                 trueColorPixel.g += result.color.g;
-                                 trueColorPixel.b += result.color.b;
-                             } else { // From laser sources
+                             if (result.color || (currentPath.originalRay && currentPath.originalRay.color)) {
+                                 const color = result.color || currentPath.originalRay.color;
+                                 sensorPixel.r += color.r; sensorPixel.g += color.g; sensorPixel.b += color.b;
+                                 trueColorPixel.r += color.r; trueColorPixel.g += color.g; trueColorPixel.b += color.b;
+                             } else {
                                  sensorPixel.r += getFilterResponse(result.wavelength, 'R');
                                  sensorPixel.g += getFilterResponse(result.wavelength, 'G');
                                  sensorPixel.b += getFilterResponse(result.wavelength, 'B');
                                  
                                  const trueColor = wavelengthToRGB(result.wavelength);
-                                 trueColorPixel.r += trueColor.r;
-                                 trueColorPixel.g += trueColor.g;
-                                 trueColorPixel.b += trueColor.b;
+                                 trueColorPixel.r += trueColor.r; trueColorPixel.g += trueColor.g; trueColorPixel.b += trueColor.b;
                              }
                              
                              maxSensorIntensity = Math.max(maxSensorIntensity, sensorPixel.r, sensorPixel.g, sensorPixel.b);
@@ -296,23 +290,39 @@ export function traceRays(config) {
             finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
         }
         
-        // FIX: Correctly determine ray color for visualization
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
-        let rayColor;
 
-        if (finalPath.ray.color) { // For camera-image-object
-            rayColor = finalPath.ray.color;
-        } else if (wavelength === 'white' && !finalPath.hasSplit) { // For white light laser before splitting
-             rayColor = whiteLightColor;
-        } else { // For single-wavelength lasers or split white light
-            rayColor = wavelengthToRGB(finalPath.ray.wavelength);
+        // FIX: Restore sophisticated drawing logic for diffraction gratings
+        if (wavelength === 'white' && finalPath.hasSplit) {
+            const grating = opticalElements.find(el => el.type === 'grating');
+            if (grating) {
+                const gratingX = grating.mesh.position.x;
+                let splitIndex = finalPath.path.findIndex(p => Math.abs(p.x - gratingX) < 1e-6);
+                if (splitIndex === -1) splitIndex = 1;
+
+                const preSplitPath = finalPath.path.slice(0, splitIndex + 1);
+                const postSplitPath = finalPath.path.slice(splitIndex);
+
+                if (preSplitPath.length > 1) {
+                    const whiteMaterial = new THREE.LineBasicMaterial({ color: whiteLightColor, transparent: true, opacity: 0.6 });
+                    rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), whiteMaterial));
+                }
+                if (postSplitPath.length > 1) {
+                    const m = finalPath.ray.diffractionOrder;
+                    const color = (m === 0) ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
+                    const colorMaterial = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 });
+                    rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), colorMaterial));
+                }
+                return; // End processing for this path
+            }
         }
         
+        // Default drawing logic for all other cases
+        const rayColor = finalPath.ray.color || ((wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength));
         const beamMaterial = new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.6 });
         rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(finalPath.path), beamMaterial));
     });
 
-    // FIX: Restore full sensor mode drawing logic
     if (pixelCtx) {
         const pixelSize = pixelCanvas.width / pixelGridSize;
         for (let y = 0; y < pixelGridSize; y++) {
@@ -326,7 +336,7 @@ export function traceRays(config) {
                         pixelCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                         pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
                     }
-                } else { // Handle Grayscale and Bayer
+                } else {
                     if (maxSensorIntensity > 0) {
                         const pixel = sensorIntensities[y][x];
                         const r = Math.round(255 * (pixel.r / maxSensorIntensity));
@@ -337,11 +347,11 @@ export function traceRays(config) {
                             const isTopRow = y % 2 === 0;
                             const isLeftColumn = x % 2 === 0;
                             if (isTopRow) {
-                                if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`; // Green
-                                else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`;              // Red
+                                if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
+                                else pixelCtx.fillStyle = `rgb(${r}, 0, 0)`;
                             } else {
-                                if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`; // Blue
-                                else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;              // Green
+                                if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`;
+                                else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
                             }
                         } else { // Grayscale
                             const gray = Math.round((r + g + b) / 3);
