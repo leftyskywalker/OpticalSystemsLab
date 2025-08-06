@@ -1,6 +1,67 @@
 import { createLens, createMirror, createDetector, createDiffractionGrating, createReflectiveGrating, createSphericalMirror, createOpticalSlit, createAperture } from './optics-components.js';
 
 export const setups = {
+    'czerny-turner': {
+        name: 'Czerny-Turner Spectrometer',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig, laserSource }) {
+            // --- Design Calculations based on the provided guide ---
+            const phi_deg = 30.0;
+            const G = 1000; // lines/mm
+            const lambda_c = 550; // nm, center wavelength (400-700nm range)
+            
+            const phi_rad = phi_deg * (Math.PI / 180);
+
+            // Calculate alpha and beta
+            const alpha_rad = Math.asin((lambda_c * G * 1e-6) / (2 * Math.cos(phi_rad / 2))) - (phi_rad / 2);
+            const beta_rad = phi_rad - alpha_rad;
+            
+            // Assume 1:1 magnification (M=1) and a detector width of 5mm (0.5 cm)
+            const detectorWidth = 0.5; // cm
+            const wavelengthRange = 300; // nm (700 - 400)
+            const M = 1.0;
+
+            const Lf_cm = (detectorWidth * Math.cos(beta_rad)) / (G * wavelengthRange * 1e-7); // 1e-7 converts G*lambda to cm
+            const Lc_cm = Lf_cm * (Math.cos(alpha_rad) / (M * Math.cos(beta_rad)));
+
+            // --- Component Creation and Positioning ---
+            
+            // 1. Slit
+            laserSource.position.set(-12, 0, 0);
+            const slitPos = { x: -10, y: 0, z: 0 };
+            const slitData = createOpticalSlit('slit1', slitPos, { slitWidth: 50 / 10000, slitHeight: 1.2 }, elementGroup);
+
+            // 2. Collimating Mirror
+            const collimatingMirrorPos = { x: slitPos.x + Lc_cm, y: 0, z: 0 };
+            const collimatingMirrorData = createSphericalMirror('collimating_mirror', collimatingMirrorPos, -2 * Lc_cm, -45, envMap, elementGroup);
+            
+            // 3. Diffraction Grating
+            const gratingPos = { x: slitPos.x + Lc_cm, y: 0, z: 10 };
+            const gratingAngle_deg = (alpha_rad * (180 / Math.PI)) - 90;
+            const gratingData = createReflectiveGrating('grating', gratingPos, gratingAngle_deg, { linesPerMM: G, lineOrientation: 'vertical' }, envMap, elementGroup);
+            
+            // 4. Focusing Mirror (Positioned based on user's trigonometric calculation)
+            const focusingMirrorPos = { x: gratingPos.x + 10 * Math.cos(60 * (Math.PI / 180)), y: 0, z: gratingPos.z - 10 * Math.sin(60 * (Math.PI / 180)) };
+            const focusingMirrorAngle_deg = -90;
+            const focusingMirrorData = createSphericalMirror('focusing_mirror', focusingMirrorPos, -2 * Lf_cm, focusingMirrorAngle_deg, envMap, elementGroup);
+            
+            // 5. Detector (Positioned Lf_cm away from the focusing mirror)
+            const detectorPos = { x: focusingMirrorPos.x, y: 0, z: focusingMirrorPos.z + Lf_cm };
+            const detectorData = createDetector('detector1', detectorPos, elementGroup);
+            detectorData.mesh.rotation.y = -Math.PI / 2;
+            
+            opticalElements.push(
+                slitData.element, 
+                collimatingMirrorData.element, 
+                gratingData.element, 
+                focusingMirrorData.element, 
+                detectorData.element
+            );
+
+            document.getElementById('setup-controls').innerHTML = `<div class="setup-title">Crossed Czerny-Turner</div><p>This is a pre-configured setup. Ray tracing is disabled.</p>`;
+            
+            simulationConfig.rayCount = 0;
+        }
+    },
     'single-lens': {
         name: 'Single Convex Lens',
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
@@ -422,3 +483,7 @@ export const setups = {
         }
     },
 };
+
+
+
+

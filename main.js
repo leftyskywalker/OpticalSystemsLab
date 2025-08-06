@@ -42,7 +42,6 @@ scene.add(laserSource);
 
 // --- Image Plane Object & Loading Logic ---
 const textureLoader = new THREE.TextureLoader();
-// NEW: Added the Corals image
 const imageSources = {
     'color-chart': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/ColorChart.png',
     'dolphin': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Dolphin.jpeg',
@@ -52,7 +51,6 @@ const imageSources = {
     'corals': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Corals.jpeg'
 };
 
-// Create a placeholder mesh. It will be updated when the texture loads.
 const imageObject = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1),
     new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide })
@@ -62,36 +60,32 @@ imageObject.rotation.y = Math.PI / 2;
 imageObject.visible = false;
 scene.add(imageObject);
 
-// Function to load and resize the selected image
 function loadImage(sourceKey) {
     const imageUrl = imageSources[sourceKey];
     if (!imageUrl) {
         console.error("Invalid image source key:", sourceKey);
         return;
     }
-
-    // Show a placeholder color while loading
+    
     imageObject.material = new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide });
 
     textureLoader.load(imageUrl, (loadedTexture) => {
         const image = loadedTexture.image;
         const aspectRatio = image.width / image.height;
-
-        // Set a fixed height for the plane and calculate the width dynamically.
-        // This automatically scales the plane to match the source image aspect ratio.
+        
         const planeHeight = 4;
         const planeWidth = planeHeight * aspectRatio;
-
-        imageObject.geometry.dispose();
+        
+        imageObject.geometry.dispose(); 
         imageObject.geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
         imageObject.material = new THREE.MeshBasicMaterial({ map: loadedTexture, side: THREE.DoubleSide });
-
+        
         updateSimulation();
     },
-    undefined, // onProgress callback not needed
+    undefined,
     (error) => {
         console.error('An error occurred loading the texture:', error);
-        imageObject.material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide }); // Show red on error
+        imageObject.material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
     });
 }
 
@@ -127,7 +121,6 @@ const backgroundToggle = document.getElementById('bg-toggle');
 // === CORE APPLICATION LOGIC ===
 
 function updateSimulation() {
-    // A small delay to ensure the new image texture is ready for the GPU before tracing
     requestAnimationFrame(() => {
         scene.updateMatrixWorld(true);
         traceRays({
@@ -161,13 +154,11 @@ function clearSetup() {
             if(child.material) child.material.dispose();
         }
     }
-    // Hide all sources and restore all controls to their default visible state
     laserSource.visible = false;
     imageObject.visible = false;
     wavelengthControls.style.display = 'flex';
     laserPatternControls.style.display = 'flex';
     rayCountSlider.parentElement.style.display = 'flex';
-
 
     document.getElementById('setup-controls').innerHTML = '';
     document.getElementById('pixel-viewer-container').style.display = 'none';
@@ -178,15 +169,17 @@ function clearSetup() {
 
 function switchSetup(setupKey) {
     clearSetup();
-
-    // Show/hide UI and sources based on setup
-    if (setupKey.startsWith('camera')) {
+    
+    // FIX: Force an update of the reflection map whenever a new setup is loaded.
+    // This ensures that mirrors and gratings are always rendered with reflections.
+    cubeCamera.update(renderer, scene);
+    
+    if (setupKey.startsWith('camera') || setupKey === 'czerny-turner') {
         sensorTypeContainer.style.display = 'flex';
     }
 
     if (setupKey === 'camera-image-object') {
         imageObject.visible = true;
-        // Hide controls that are not relevant for this setup
         wavelengthControls.style.display = 'none';
         laserPatternControls.style.display = 'none';
         rayCountSlider.parentElement.style.display = 'none';
@@ -204,7 +197,7 @@ function switchSetup(setupKey) {
             imageObject,
             envMap: cubeCamera.renderTarget.texture,
             simulationConfig,
-            loadImageCallback: loadImage // Pass the loadImage function to the setup
+            loadImageCallback: loadImage
         });
     }
     updateSimulation();
@@ -265,14 +258,23 @@ window.addEventListener('resize', () => {
 function animate() {
     requestAnimationFrame(animate);
 
-    const mirror = elementGroup.children.find(c => c.name === 'mirror1' || c.name.startsWith('spherical_mirror'));
+    const reflectiveElements = elementGroup.children.filter(c => 
+        c.material && c.material.envMap
+    );
 
-    if (mirror) {
-        mirror.visible = false;
+    if (reflectiveElements.length > 0) {
+        reflectiveElements.forEach(el => el.visible = false);
         rayGroup.visible = false;
-        cubeCamera.position.copy(mirror.position);
+        
+        // Position the cube camera at the average position of all reflective elements
+        const centerPos = new THREE.Vector3();
+        reflectiveElements.forEach(el => centerPos.add(el.position));
+        centerPos.divideScalar(reflectiveElements.length);
+        cubeCamera.position.copy(centerPos);
+        
         cubeCamera.update(renderer, scene);
-        mirror.visible = true;
+        
+        reflectiveElements.forEach(el => el.visible = true);
         rayGroup.visible = true;
     }
 
@@ -282,7 +284,7 @@ function animate() {
 }
 
 // --- START THE APP ---
-loadImage('color-chart'); // Load the default image initially
+loadImage('color-chart');
 wavelengthSelect.dispatchEvent(new Event('change'));
 switchSetup('single-lens');
 animate();
