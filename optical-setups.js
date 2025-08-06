@@ -259,7 +259,7 @@ export const setups = {
     },
     'camera-image-object': {
         name: 'Camera (Image Object)',
-        init: function({ opticalElements, elementGroup, traceRaysCallback, imageObject, simulationConfig }) {
+        init: function({ opticalElements, elementGroup, traceRaysCallback, imageObject, simulationConfig, loadImageCallback }) {
             const lensData = createLens('lens1', {x: 0, y: 0, z: 0}, 5, elementGroup);
             const detectorData = createDetector('detector1', {x: 8, y: 0, z: 0}, elementGroup);
             opticalElements.push(lensData.element, detectorData.element);
@@ -267,8 +267,16 @@ export const setups = {
             document.getElementById('pixel-viewer-container').style.display = 'block';
 
             const controlsDiv = document.getElementById('setup-controls');
+            // NEW: Added image-select dropdown
             controlsDiv.innerHTML = `
                 <div class="setup-title">Image Object</div>
+                <div class="control-row">
+                    <label for="image-select">Image Source:</label>
+                    <select id="image-select">
+                        <option value="color-chart" selected>Color Chart</option>
+                        <option value="dolphin">Dolphin</option>
+                    </select>
+                </div>
                 <div class="control-row"><label for="image-x">Position (X):</label><input type="range" id="image-x" min="-15" max="-1" value="-10" step="0.1"><span id="image-x-value">-10.0 cm</span></div>
                 <hr>
                 <div class="setup-title">Lens</div>
@@ -280,6 +288,13 @@ export const setups = {
                 <div class="control-row"><button id="autofocus-btn" style="width: 100%;">Auto-Focus</button></div>
             `;
             
+            // NEW: Event listener for the image selector
+            document.getElementById('image-select').addEventListener('change', (e) => {
+                if (loadImageCallback) {
+                    loadImageCallback(e.target.value);
+                }
+            });
+
             document.getElementById('image-x').addEventListener('input', (e) => { 
                 imageObject.position.x = parseFloat(e.target.value); 
                 document.getElementById('image-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 

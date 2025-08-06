@@ -40,44 +40,55 @@ const laserSource = new THREE.Mesh(
 laserSource.position.set(-10, 0, 0);
 scene.add(laserSource);
 
-// --- Image Plane Object ---
+// --- Image Plane Object & Loading Logic ---
 const textureLoader = new THREE.TextureLoader();
-const imageUrl = 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/ColorChart.png';
+const imageSources = {
+    'color-chart': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/ColorChart.png',
+    'dolphin': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Dolphin.jpeg'
+};
 
 // Create a placeholder mesh. It will be updated when the texture loads.
 const imageObject = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1), 
     new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide })
 );
-
-// Load the texture and, in the callback, update the plane's geometry to match the image's aspect ratio.
-textureLoader.load(imageUrl, (loadedTexture) => {
-    const image = loadedTexture.image;
-    const aspectRatio = image.width / image.height;
-    
-    // Set a fixed height for the plane and calculate the width dynamically to maintain the aspect ratio.
-    const planeHeight = 4; // You can adjust this value to change the overall size of the image in the scene.
-    const planeWidth = planeHeight * aspectRatio;
-    
-    // Dispose of the old placeholder geometry to prevent memory leaks.
-    imageObject.geometry.dispose(); 
-    
-    // Create and assign the new geometry with the correct aspect ratio.
-    imageObject.geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
-    
-    // Assign the loaded texture to the material.
-    imageObject.material = new THREE.MeshBasicMaterial({ map: loadedTexture, side: THREE.DoubleSide });
-    
-    // If the image setup is currently active, trigger a re-render now that the geometry is correct.
-    if (document.getElementById('setup-select').value === 'camera-image-object') {
-        updateSimulation();
-    }
-});
-
 imageObject.position.set(-10, 0, 0);
 imageObject.rotation.y = Math.PI / 2;
 imageObject.visible = false;
 scene.add(imageObject);
+
+// NEW: Function to load and resize the selected image
+function loadImage(sourceKey) {
+    const imageUrl = imageSources[sourceKey];
+    if (!imageUrl) {
+        console.error("Invalid image source key:", sourceKey);
+        return;
+    }
+    
+    // Show a placeholder color while loading
+    imageObject.material = new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide });
+
+    textureLoader.load(imageUrl, (loadedTexture) => {
+        const image = loadedTexture.image;
+        const aspectRatio = image.width / image.height;
+        
+        // Set a fixed height for the plane and calculate the width dynamically.
+        // This automatically scales the plane to match the source image aspect ratio.
+        const planeHeight = 4;
+        const planeWidth = planeHeight * aspectRatio;
+        
+        imageObject.geometry.dispose(); 
+        imageObject.geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+        imageObject.material = new THREE.MeshBasicMaterial({ map: loadedTexture, side: THREE.DoubleSide });
+        
+        updateSimulation();
+    },
+    undefined, // onProgress callback not needed
+    (error) => {
+        console.error('An error occurred loading the texture:', error);
+        imageObject.material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide }); // Show red on error
+    });
+}
 
 
 // Central config for simulation parameters
@@ -111,22 +122,24 @@ const backgroundToggle = document.getElementById('bg-toggle');
 // === CORE APPLICATION LOGIC ===
 
 function updateSimulation() {
-    scene.updateMatrixWorld(true);
-
-    traceRays({
-        rayGroup,
-        opticalElements,
-        laserSource,
-        imageObject,
-        pixelCtx,
-        pixelCanvas,
-        pixelGridSize,
-        wavelength: simulationConfig.wavelength,
-        laserPattern: simulationConfig.laserPattern,
-        sensorType: simulationConfig.sensorType,
-        rayCount: simulationConfig.rayCount,
-        backgroundColor: simulationConfig.backgroundColor,
-        setupKey: document.getElementById('setup-select').value
+    // A small delay to ensure the new image texture is ready for the GPU before tracing
+    requestAnimationFrame(() => {
+        scene.updateMatrixWorld(true);
+        traceRays({
+            rayGroup,
+            opticalElements,
+            laserSource,
+            imageObject,
+            pixelCtx,
+            pixelCanvas,
+            pixelGridSize,
+            wavelength: simulationConfig.wavelength,
+            laserPattern: simulationConfig.laserPattern,
+            sensorType: simulationConfig.sensorType,
+            rayCount: simulationConfig.rayCount,
+            backgroundColor: simulationConfig.backgroundColor,
+            setupKey: document.getElementById('setup-select').value
+        });
     });
 }
 
@@ -185,7 +198,8 @@ function switchSetup(setupKey) {
             laserSource,
             imageObject,
             envMap: cubeCamera.renderTarget.texture,
-            simulationConfig
+            simulationConfig,
+            loadImageCallback: loadImage // Pass the loadImage function to the setup
         });
     }
     updateSimulation();
@@ -263,6 +277,7 @@ function animate() {
 }
 
 // --- START THE APP ---
+loadImage('color-chart'); // Load the default image initially
 wavelengthSelect.dispatchEvent(new Event('change'));
 switchSetup('single-lens');
 animate();
