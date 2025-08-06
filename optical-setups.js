@@ -38,16 +38,19 @@ export const setups = {
             const gratingPos = { x: slitPos.x + Lc_cm, y: 0, z: 10 };
             const gratingAngle_deg = (alpha_rad * (180 / Math.PI)) - 90;
             const gratingData = createReflectiveGrating('grating', gratingPos, gratingAngle_deg, { linesPerMM: G, lineOrientation: 'vertical' }, envMap, elementGroup);
+            // FIX: Rotate the grating 180 degrees to face the incoming light
+            gratingData.mesh.rotateY(Math.PI);
             
-            // 4. Focusing Mirror (Positioned based on user's trigonometric calculation)
+            // 4. Focusing Mirror
             const focusingMirrorPos = { x: gratingPos.x + 10 * Math.cos(60 * (Math.PI / 180)), y: 0, z: gratingPos.z - 10 * Math.sin(60 * (Math.PI / 180)) };
             const focusingMirrorAngle_deg = -90;
             const focusingMirrorData = createSphericalMirror('focusing_mirror', focusingMirrorPos, -2 * Lf_cm, focusingMirrorAngle_deg, envMap, elementGroup);
             
-            // 5. Detector (Positioned Lf_cm away from the focusing mirror)
+            // 5. Detector
             const detectorPos = { x: focusingMirrorPos.x, y: 0, z: focusingMirrorPos.z + Lf_cm };
             const detectorData = createDetector('detector1', detectorPos, elementGroup);
-            detectorData.mesh.rotation.y = -Math.PI / 2;
+            // FIX: Rotate the detector to face the focusing mirror
+            detectorData.mesh.rotation.y = Math.PI;
             
             opticalElements.push(
                 slitData.element, 
@@ -57,9 +60,12 @@ export const setups = {
                 detectorData.element
             );
 
-            document.getElementById('setup-controls').innerHTML = `<div class="setup-title">Crossed Czerny-Turner</div><p>This is a pre-configured setup. Ray tracing is disabled.</p>`;
+            document.getElementById('setup-controls').innerHTML = `<div class="setup-title">Crossed Czerny-Turner</div><p>This is a pre-configured setup.</p>`;
             
-            simulationConfig.rayCount = 0;
+            // Re-enable ray tracing with a default value
+            simulationConfig.rayCount = 100;
+            document.getElementById('ray-count-slider').value = 100;
+            document.getElementById('ray-count-value').textContent = 100;
         }
     },
     'single-lens': {
@@ -483,6 +489,7 @@ export const setups = {
         }
     },
 };
+
 
 
 
