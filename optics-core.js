@@ -1,7 +1,8 @@
-// === OPTICS CORE ENGINE - V2.18 (Defocus Simulation) ===
+// === OPTICS CORE ENGINE - V2.20 (Boundary Fix) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Implemented a two-pass rendering system for the 'camera-image-object' 
-// setup to simulate realistic defocus effects based on focal length.
+// MODIFIED: Added strict boundary checks to the image sampling logic in the
+// 'camera-image-object' setup to prevent out-of-bounds memory access,
+// which was causing NaN propagation and rendering artifacts.
 
 /**
  * Represents a light ray with an origin, direction, and wavelength.
@@ -133,24 +134,39 @@ export function traceRays(config) {
                 const dirToLens = lens.mesh.position.clone().sub(sensorPoint).normalize();
                 const intersectOnLens = sensorPoint.clone().add(dirToLens.clone().multiplyScalar((lens.mesh.position.x - sensorPoint.x) / dirToLens.x));
 
-                // Note: The original backward trace logic here is geometrically unconventional but produces a coherent image.
-                // We will use it as the basis for the "perfect" image before applying the physically-based blur.
+                let color = { r: 0, g: 0, b: 0 };
+
                 const so_calc = Math.abs(sensorPoint.x - lens.mesh.position.x);
-                const si_calc = 1 / (1 / lens.focalLength - 1 / so_calc);
+                
+                const denominator = 1 / lens.focalLength - 1 / so_calc;
+                if (Math.abs(denominator) < 1e-9) {
+                    perfectImageGrid[py][px] = color;
+                    sourceDataGrid[py][px] = { origin: null, color: new THREE.Color(0,0,0) };
+                    continue; 
+                }
+                
+                const si_calc = 1 / denominator;
                 const M = -si_calc / so_calc;
                 const ho_y_calc = sensorPoint.y - lens.mesh.position.y;
                 const ho_z_calc = sensorPoint.z - lens.mesh.position.z;
                 const objectPlanePoint = new THREE.Vector3(lens.mesh.position.x + si_calc, lens.mesh.position.y + (ho_y_calc * M), lens.mesh.position.z + (ho_z_calc * M));
 
                 const dirFromLens = objectPlanePoint.clone().sub(intersectOnLens).normalize();
+
+                if (Math.abs(dirFromLens.x) < 1e-9) {
+                    perfectImageGrid[py][px] = color;
+                    sourceDataGrid[py][px] = { origin: null, color: new THREE.Color(0,0,0) };
+                    continue; 
+                }
+
                 const objectHitPoint = intersectOnLens.clone().add(dirFromLens.clone().multiplyScalar((imageObject.position.x - intersectOnLens.x) / dirFromLens.x));
                 
                 const localIntersect = imageObject.worldToLocal(objectHitPoint.clone());
                 const u = (localIntersect.x / imageObject.geometry.parameters.width) + 0.5;
                 const v = 1.0 - ((localIntersect.y / imageObject.geometry.parameters.height) + 0.5);
 
-                let color = { r: 0, g: 0, b: 0 };
-                if (u >= 0 && u <= 1 && v >= 0 && v <= 1) {
+                // --- FIX: Use strict boundary checks (< 1) to prevent off-by-one errors on image data access ---
+                if (u >= 0 && u < 1 && v >= 0 && v < 1) {
                     const imgX = Math.floor(u * image.width);
                     const imgY = Math.floor(v * image.height);
                     const C_idx = (imgY * image.width + imgX) * 4;
@@ -198,10 +214,12 @@ export function traceRays(config) {
                             const dy = y - py;
                             if (dx*dx + dy*dy <= coc_radius_pixels_sq) {
                                 const sampleColor = perfectImageGrid[y][x];
-                                totalColor.r += sampleColor.r;
-                                totalColor.g += sampleColor.g;
-                                totalColor.b += sampleColor.b;
-                                sampleCount++;
+                                if (sampleColor) { // Ensure sample is not null
+                                    totalColor.r += sampleColor.r;
+                                    totalColor.g += sampleColor.g;
+                                    totalColor.b += sampleColor.b;
+                                    sampleCount++;
+                                }
                             }
                         }
                     }
@@ -243,7 +261,7 @@ export function traceRays(config) {
             for (let px = 0; px < pixelGridSize; px++) {
                  if ((py * pixelGridSize + px) % visualizationSpacing === 0) {
                     const sourceData = sourceDataGrid[py][px];
-                    if (sourceData && (sourceData.color.r > 0 || sourceData.color.g > 0 || sourceData.color.b > 0)) {
+                    if (sourceData && sourceData.origin && (sourceData.color.r > 0 || sourceData.color.g > 0 || sourceData.color.b > 0)) {
                          const { origin, color } = sourceData;
                          const lensCenter = lens.mesh.position;
                          const lensRadius = lens.mesh.geometry.parameters.radiusTop;
