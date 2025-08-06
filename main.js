@@ -42,18 +42,19 @@ scene.add(laserSource);
 
 // --- Image Plane Object & Loading Logic ---
 const textureLoader = new THREE.TextureLoader();
-// NEW: Added Cityscape, Building, and Boardwalk images
+// NEW: Added the Corals image
 const imageSources = {
     'color-chart': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/ColorChart.png',
     'dolphin': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Dolphin.jpeg',
     'cityscape': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Cityscape.jpeg',
     'building': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Building.jpeg',
-    'boardwalk': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Boardwalk.jpeg'
+    'boardwalk': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Boardwalk.jpeg',
+    'corals': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Corals.jpeg'
 };
 
 // Create a placeholder mesh. It will be updated when the texture loads.
 const imageObject = new THREE.Mesh(
-    new THREE.PlaneGeometry(1, 1), 
+    new THREE.PlaneGeometry(1, 1),
     new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide })
 );
 imageObject.position.set(-10, 0, 0);
@@ -68,23 +69,23 @@ function loadImage(sourceKey) {
         console.error("Invalid image source key:", sourceKey);
         return;
     }
-    
+
     // Show a placeholder color while loading
     imageObject.material = new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide });
 
     textureLoader.load(imageUrl, (loadedTexture) => {
         const image = loadedTexture.image;
         const aspectRatio = image.width / image.height;
-        
+
         // Set a fixed height for the plane and calculate the width dynamically.
         // This automatically scales the plane to match the source image aspect ratio.
         const planeHeight = 4;
         const planeWidth = planeHeight * aspectRatio;
-        
-        imageObject.geometry.dispose(); 
+
+        imageObject.geometry.dispose();
         imageObject.geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
         imageObject.material = new THREE.MeshBasicMaterial({ map: loadedTexture, side: THREE.DoubleSide });
-        
+
         updateSimulation();
     },
     undefined, // onProgress callback not needed
@@ -177,7 +178,7 @@ function clearSetup() {
 
 function switchSetup(setupKey) {
     clearSetup();
-    
+
     // Show/hide UI and sources based on setup
     if (setupKey.startsWith('camera')) {
         sensorTypeContainer.style.display = 'flex';
