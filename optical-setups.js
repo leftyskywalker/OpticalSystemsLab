@@ -333,7 +333,7 @@ export const setups = {
     'diffraction-grating': {
         name: 'Transmissive Grating',
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
-            const gratingConfig = { linesPerMM: 600 };
+            const gratingConfig = { linesPerMM: 600, lineOrientation: 'horizontal' };
             const gratingData = createDiffractionGrating('grating1', {x: 0, y: 0, z: 0}, gratingConfig, elementGroup);
             opticalElements.push(gratingData.element);
 
@@ -343,6 +343,13 @@ export const setups = {
             controlsDiv.innerHTML = `
                 <div class="control-row"><label for="grating-x">Grating Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
                 <div class="control-row"><label for="grating-density">Groove Density (L/mm):</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600</span></div>
+                <div class="control-row">
+                    <label for="grating-orientation">Line Orientation:</label>
+                    <select id="grating-orientation">
+                        <option value="horizontal" selected>Horizontal</option>
+                        <option value="vertical">Vertical</option>
+                    </select>
+                </div>
             `;
 
             document.getElementById('grating-x').addEventListener('input', (e) => {
@@ -357,12 +364,17 @@ export const setups = {
                 document.getElementById('grating-density-value').textContent = density;
                 traceRaysCallback();
             });
+
+            document.getElementById('grating-orientation').addEventListener('change', (e) => {
+                gratingData.element.lineOrientation = e.target.value;
+                traceRaysCallback();
+            });
         }
     },
     'reflective-grating': {
         name: 'Reflective Grating',
         init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig }) {
-            const gratingData = createReflectiveGrating('reflective_grating_1', {x: 0, y: 0, z: 0}, 0, { linesPerMM: 600 }, envMap, elementGroup);
+            const gratingData = createReflectiveGrating('reflective_grating_1', {x: 0, y: 0, z: 0}, 0, { linesPerMM: 600, lineOrientation: 'vertical' }, envMap, elementGroup);
             opticalElements.push(gratingData.element);
 
             document.getElementById('pixel-viewer-container').style.display = 'none';
@@ -372,6 +384,13 @@ export const setups = {
                 <div class="control-row"><label for="grating-x">Grating Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
                 <div class="control-row"><label for="grating-angle">Grating Angle:</label><input type="range" id="grating-angle" min="-45" max="45" value="0" step="1"><span id="grating-angle-value">0&deg;</span></div>
                 <div class="control-row"><label for="grating-density">Grooves (L/mm):</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600</span></div>
+                <div class="control-row">
+                    <label for="grating-orientation">Line Orientation:</label>
+                    <select id="grating-orientation">
+                        <option value="vertical" selected>Vertical</option>
+                        <option value="horizontal">Horizontal</option>
+                    </select>
+                </div>
             `;
 
             document.getElementById('grating-x').addEventListener('input', (e) => {
@@ -395,7 +414,11 @@ export const setups = {
                 document.getElementById('grating-density-value').textContent = density;
                 traceRaysCallback();
             });
+            
+            document.getElementById('grating-orientation').addEventListener('change', (e) => {
+                gratingData.element.lineOrientation = e.target.value;
+                traceRaysCallback();
+            });
         }
     },
 };
-

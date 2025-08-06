@@ -1,7 +1,7 @@
-// === OPTICS COMPONENTS - V3.3 (Reflection Physics Fix) ===
+// === OPTICS COMPONENTS - V3.4 (Grating Orientation) ===
 // Contains the factory functions for creating optical elements.
-// MODIFIED: Overhauled the physics in createReflectiveGrating to use a robust
-// reflection-first model, fixing the bug where rays appeared to transmit.
+// MODIFIED: Added a 'lineOrientation' property to both transmissive and reflective
+// gratings to allow toggling between horizontal and vertical dispersion.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
@@ -162,7 +162,7 @@ export function createDetector(name, position, elementGroup) {
 }
 
 export function createDiffractionGrating(name, position, config, elementGroup) {
-    const { linesPerMM } = config;
+    const { linesPerMM, lineOrientation = 'horizontal' } = config;
     const gratingMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaee, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
     const gratingGeometry = new THREE.PlaneGeometry(5, 5);
     const mesh = new THREE.Mesh(gratingGeometry, gratingMaterial);
@@ -172,7 +172,7 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
     elementGroup.add(mesh);
 
     const element = {
-        mesh: mesh, type: 'grating', linesPerMM: linesPerMM,
+        mesh: mesh, type: 'grating', linesPerMM: linesPerMM, lineOrientation: lineOrientation,
         processRay: function(ray, originalRay) {
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             if (t > 1e-6) {
@@ -187,9 +187,18 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
                         const sin_theta_m = (m * ray.wavelength) / d;
                         if (Math.abs(sin_theta_m) <= 1) {
                             const theta_m = Math.asin(sin_theta_m);
-                            const originalAngle = Math.atan2(ray.direction.y, ray.direction.x);
-                            const newAngle = originalAngle + theta_m;
-                            const newDir = new THREE.Vector3(Math.cos(newAngle), Math.sin(newAngle), ray.direction.z).normalize();
+                            let newDir;
+
+                            if (this.lineOrientation === 'horizontal') {
+                                const originalAngle = Math.atan2(ray.direction.y, ray.direction.x);
+                                const newAngle = originalAngle + theta_m;
+                                newDir = new THREE.Vector3(Math.cos(newAngle), Math.sin(newAngle), ray.direction.z).normalize();
+                            } else { // vertical
+                                const originalAngle = Math.atan2(ray.direction.z, ray.direction.x);
+                                const newAngle = originalAngle + theta_m;
+                                newDir = new THREE.Vector3(Math.cos(newAngle), ray.direction.y, Math.sin(newAngle)).normalize();
+                            }
+                            
                             const newRay = new Ray(intersectPoint, newDir, ray.wavelength, ray.color);
                             newRay.diffractionOrder = m;
                             newRays.push(newRay);
@@ -205,7 +214,7 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
 }
 
 export function createReflectiveGrating(name, position, angle, config, envMap, elementGroup) {
-    const { linesPerMM } = config;
+    const { linesPerMM, lineOrientation = 'vertical' } = config;
     const gratingMaterial = new THREE.MeshStandardMaterial({
         color: 0xddddff, metalness: 1.0, roughness: 0.1, envMap: envMap
     });
@@ -218,15 +227,13 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
     elementGroup.add(mesh);
 
     const element = {
-        mesh: mesh, type: 'reflective-grating', linesPerMM: linesPerMM,
+        mesh: mesh, type: 'reflective-grating', linesPerMM: linesPerMM, lineOrientation: lineOrientation,
         processRay: function(ray, originalRay) {
             const plane = new THREE.Plane();
             const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
             plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
 
-            if (ray.direction.dot(normal) >= 0) {
-                return null;
-            }
+            if (ray.direction.dot(normal) >= 0) return null;
 
             const intersectPoint = new THREE.Vector3();
             if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
@@ -235,10 +242,18 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 if (Math.abs(localPoint.x) <= gratingGeometry.parameters.width / 2 && Math.abs(localPoint.y) <= gratingGeometry.parameters.height / 2) {
                     
-                    const newRays = [];
-                    const d = 1000000 / this.linesPerMM;
                     const reflectedDir = ray.direction.clone().reflect(normal);
-                    const tangent = new THREE.Vector3().crossVectors(normal, new THREE.Vector3(0, 1, 0)).normalize();
+                    const d = 1000000 / this.linesPerMM;
+                    const newRays = [];
+
+                    let dispersionAxis;
+                    if (this.lineOrientation === 'vertical') {
+                        dispersionAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(this.mesh.quaternion);
+                    } else { // horizontal
+                        dispersionAxis = new THREE.Vector3(0, 1, 0).applyQuaternion(this.mesh.quaternion);
+                    }
+                    
+                    const rotationAxis = new THREE.Vector3().crossVectors(reflectedDir, dispersionAxis).normalize();
 
                     for (let m = -1; m <= 1; m++) {
                         if (m === 0) {
@@ -251,7 +266,7 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
                         const sin_theta_m = (m * ray.wavelength) / d;
                         if (Math.abs(sin_theta_m) <= 1) {
                             const theta_m = Math.asin(sin_theta_m);
-                            const newDir = reflectedDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), theta_m);
+                            const newDir = reflectedDir.clone().applyAxisAngle(rotationAxis, theta_m);
                             
                             const newRay = new Ray(intersectPoint, newDir, ray.wavelength, ray.color);
                             newRay.diffractionOrder = m;
