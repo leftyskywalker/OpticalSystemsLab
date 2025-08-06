@@ -1,6 +1,6 @@
-// === OPTICS COMPONENTS - V2.6 (Floating Point Fix) ===
+// === OPTICS COMPONENTS - V3.1 (Reflective Grating) ===
 // Contains the factory functions for creating optical elements.
-// MODIFIED: Added a small tolerance to the lens radius check to fix floating-point errors with marginal rays.
+// NEW: Added createReflectiveGrating for building spectrometers and other reflective systems.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
@@ -17,23 +17,16 @@ export function createLens(name, position, focalLength, elementGroup) {
     const element = {
         mesh: mesh, type: 'thin-lens', focalLength: focalLength,
         processRay: function(ray, originalRay, config) { // Now receives the global config
-            // Check if the ray is heading towards the lens plane
             if (ray.direction.x === 0) return null;
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const intersectPointLocal = this.mesh.worldToLocal(intersectPoint.clone());
-                
                 const distFromCenter = Math.sqrt(intersectPointLocal.x**2 + intersectPointLocal.z**2);
 
-                // --- FIX: Add a small epsilon (1e-6) to the radius check ---
-                // This prevents floating-point errors where a ray aimed exactly at the edge is missed.
                 if (distFromCenter <= lensGeometry.parameters.radiusTop + 1e-6) {
-
-                    // --- HYBRID MODEL SELECTION ---
                     if (config && config.setupKey === 'camera-image-object') {
-                        // MODEL 1: "Perfect Focus" using Thin Lens Equation
                         const objectPoint = originalRay.origin;
                         const lensPosition = this.mesh.position;
                         const so = Math.abs(objectPoint.x - lensPosition.x);
@@ -55,7 +48,6 @@ export function createLens(name, position, focalLength, elementGroup) {
                         return { newRay: new Ray(intersectPoint, newDir, ray.wavelength, ray.color) };
 
                     } else {
-                        // MODEL 2: Classic Paraxial Ray Tracing
                         const y = intersectPoint.y - this.mesh.position.y;
                         const z = intersectPoint.z - this.mesh.position.z;
                         const newDirY = ray.direction.y - y / this.focalLength;
@@ -160,7 +152,6 @@ export function createDetector(name, position, elementGroup) {
             const intersectPoint = new THREE.Vector3();
             if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
                 if (ray.direction.dot(intersectPoint.clone().sub(ray.origin)) > 0) {
-                    // Pass the ray's color and wavelength along with the intersection point
                     return { intersection: intersectPoint, wavelength: ray.wavelength, color: ray.color };
                 }
             }
@@ -213,16 +204,74 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
     return { mesh, element };
 }
 
-export function createOpticalSlit(name, position, config, elementGroup) {
-    const material = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide });
-    const plateSize = 5; // 5 cm plate
+/**
+ * NEW: Creates a reflective diffraction grating.
+ */
+export function createReflectiveGrating(name, position, angle, config, envMap, elementGroup) {
+    const { linesPerMM } = config;
+    const gratingMaterial = new THREE.MeshStandardMaterial({
+        color: 0xddddff, metalness: 1.0, roughness: 0.1, envMap: envMap
+    });
+    const gratingGeometry = new THREE.PlaneGeometry(5, 5);
+    const mesh = new THREE.Mesh(gratingGeometry, gratingMaterial);
+    mesh.name = name;
+    mesh.position.set(position.x, position.y, position.z);
+    mesh.rotation.y = -angle * (Math.PI / 180);
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(gratingGeometry), new THREE.LineBasicMaterial({ color: 0x333333 })));
+    elementGroup.add(mesh);
 
     const element = {
-        mesh: null,
-        type: 'optical-slit',
-        slitWidth: config.slitWidth,
-        slitHeight: config.slitHeight,
+        mesh: mesh, type: 'reflective-grating', linesPerMM: linesPerMM,
+        processRay: function(ray, originalRay) {
+            const plane = new THREE.Plane();
+            const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
+            plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
 
+            const intersectPoint = new THREE.Vector3();
+            if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
+                if (ray.direction.dot(intersectPoint.clone().sub(ray.origin)) < 0) return null;
+
+                const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
+                if (Math.abs(localPoint.x) <= gratingGeometry.parameters.width / 2 && Math.abs(localPoint.y) <= gratingGeometry.parameters.height / 2) {
+                    const tangentX = new THREE.Vector3(1, 0, 0).applyQuaternion(this.mesh.quaternion);
+                    const v_in = ray.direction;
+                    const v_in_normal_comp = v_in.dot(normal);
+                    const v_in_tangentX_comp = v_in.dot(tangentX);
+
+                    const newRays = [];
+                    const d = 1000000 / this.linesPerMM;
+
+                    for (let m = -1; m <= 1; m++) {
+                        const v_out_tangentX_comp = v_in_tangentX_comp - (m * ray.wavelength) / d;
+                        const v_out_normal_comp_sq = 1 - v_out_tangentX_comp**2 - v_in.dot(new THREE.Vector3(0,1,0).applyQuaternion(this.mesh.quaternion))**2;
+
+                        if (v_out_normal_comp_sq >= 0) {
+                            const v_out_normal_comp = -Math.sqrt(v_out_normal_comp_sq);
+                            const newDir = normal.clone().multiplyScalar(v_out_normal_comp)
+                                         .add(tangentX.clone().multiplyScalar(v_out_tangentX_comp))
+                                         .add(new THREE.Vector3(0,1,0).applyQuaternion(this.mesh.quaternion).multiplyScalar(v_in.dot(new THREE.Vector3(0,1,0).applyQuaternion(this.mesh.quaternion))));
+                            
+                            const newRay = new Ray(intersectPoint, newDir.normalize(), ray.wavelength, ray.color);
+                            newRay.diffractionOrder = m;
+                            newRays.push(newRay);
+                        }
+                    }
+                    if (newRays.length > 0) return { newRays: newRays };
+                }
+            }
+            return null;
+        }
+    };
+    return { mesh, element };
+}
+
+
+export function createOpticalSlit(name, position, config, elementGroup) {
+    const material = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide });
+    const plateSize = 5;
+
+    const element = {
+        mesh: null, type: 'optical-slit', slitWidth: config.slitWidth, slitHeight: config.slitHeight,
         _rebuildMesh: function() {
             const plateShape = new THREE.Shape();
             plateShape.moveTo(-plateSize / 2, -plateSize / 2);
@@ -239,7 +288,6 @@ export function createOpticalSlit(name, position, config, elementGroup) {
             slitHole.closePath();
             
             plateShape.holes.push(slitHole);
-            
             const geometry = new THREE.ShapeGeometry(plateShape);
 
             if (this.mesh) {
@@ -253,27 +301,24 @@ export function createOpticalSlit(name, position, config, elementGroup) {
                 elementGroup.add(this.mesh);
             }
         },
-
         processRay: function(ray, originalRay) {
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
-                
                 const isInsideSlit = Math.abs(localPoint.x) <= this.slitWidth / 2 && Math.abs(localPoint.y) <= this.slitHeight / 2;
 
                 if (isInsideSlit) {
                     return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength, ray.color) };
                 } else {
                     if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
-                        return { intersection: intersectPoint }; // Block the ray
+                        return { intersection: intersectPoint };
                     }
                 }
             }
             return null;
         }
     };
-
     element._rebuildMesh();
     return { mesh: element.mesh, element: element };
 }
@@ -283,10 +328,7 @@ export function createAperture(name, position, config, elementGroup) {
     const plateSize = 5;
 
     const element = {
-        mesh: null,
-        type: 'aperture',
-        diameter: config.diameter, // in cm
-
+        mesh: null, type: 'aperture', diameter: config.diameter,
         _rebuildMesh: function() {
             const plateShape = new THREE.Shape();
             plateShape.moveTo(-plateSize / 2, -plateSize / 2);
@@ -297,9 +339,7 @@ export function createAperture(name, position, config, elementGroup) {
 
             const apertureHole = new THREE.Path();
             apertureHole.absarc(0, 0, this.diameter / 2, 0, Math.PI * 2, false);
-            
             plateShape.holes.push(apertureHole);
-            
             const geometry = new THREE.ShapeGeometry(plateShape);
 
             if (this.mesh) {
@@ -313,20 +353,16 @@ export function createAperture(name, position, config, elementGroup) {
                 elementGroup.add(this.mesh);
             }
         },
-
         processRay: function(ray, originalRay) {
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             if (t > 1e-6) {
                 const intersectPoint = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
-                
                 const distanceFromCenter = Math.sqrt(localPoint.x**2 + localPoint.y**2);
 
                 if (distanceFromCenter <= this.diameter / 2) {
-                    // Ray passes through the aperture
                     return { newRay: new Ray(intersectPoint, ray.direction, ray.wavelength, ray.color) };
                 } else {
-                    // Ray hits the plate, check if it's within the plate bounds before blocking
                     if (Math.abs(localPoint.x) <= plateSize / 2 && Math.abs(localPoint.y) <= plateSize / 2) {
                         return { intersection: intersectPoint };
                     }
@@ -335,7 +371,6 @@ export function createAperture(name, position, config, elementGroup) {
             return null;
         }
     };
-
-    element._rebuildMesh(); // Initial build
+    element._rebuildMesh();
     return { mesh: element.mesh, element: element };
 }

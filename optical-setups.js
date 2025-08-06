@@ -1,4 +1,4 @@
-import { createLens, createMirror, createDetector, createDiffractionGrating, createSphericalMirror, createOpticalSlit, createAperture } from './optics-components.js';
+import { createLens, createMirror, createDetector, createDiffractionGrating, createReflectiveGrating, createSphericalMirror, createOpticalSlit, createAperture } from './optics-components.js';
 
 export const setups = {
     'single-lens': {
@@ -27,7 +27,7 @@ export const setups = {
     'aperture': {
         name: 'Circular Aperture',
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
-            const initialConfig = { diameter: 1.0 }; // Default 1.0 cm = 10mm diameter
+            const initialConfig = { diameter: 1.0 };
             const apertureData = createAperture('aperture1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
             opticalElements.push(apertureData.element);
 
@@ -46,7 +46,7 @@ export const setups = {
             document.getElementById('aperture-diameter').addEventListener('input', (e) => {
                 const newDiameterMM = parseFloat(e.target.value);
                 document.getElementById('aperture-diameter-value').textContent = newDiameterMM.toFixed(1) + ' mm';
-                apertureData.element.diameter = newDiameterMM / 10; // Convert mm to cm
+                apertureData.element.diameter = newDiameterMM / 10;
                 apertureData.element._rebuildMesh();
                 traceRaysCallback();
             });
@@ -55,10 +55,7 @@ export const setups = {
     'optical-slit': {
         name: 'Optical Slit',
         init: function({ opticalElements, elementGroup, traceRaysCallback, simulationConfig }) {
-            const initialConfig = {
-                slitWidth: 50 / 10000,
-                slitHeight: 12 / 10,
-            };
+            const initialConfig = { slitWidth: 50 / 10000, slitHeight: 1.2 };
             const slitData = createOpticalSlit('slit1', {x: 0, y: 0, z: 0}, initialConfig, elementGroup);
             opticalElements.push(slitData.element);
 
@@ -267,7 +264,6 @@ export const setups = {
             document.getElementById('pixel-viewer-container').style.display = 'block';
 
             const controlsDiv = document.getElementById('setup-controls');
-            // NEW: Added the Corals image option
             controlsDiv.innerHTML = `
                 <div class="setup-title">Image Object</div>
                 <div class="control-row">
@@ -292,7 +288,6 @@ export const setups = {
                 <div class="control-row"><button id="autofocus-btn" style="width: 100%;">Auto-Focus</button></div>
             `;
             
-            // Event listener for the image selector
             document.getElementById('image-select').addEventListener('change', (e) => {
                 if (loadImageCallback) {
                     loadImageCallback(e.target.value);
@@ -353,6 +348,43 @@ export const setups = {
             document.getElementById('grating-x').addEventListener('input', (e) => {
                 gratingData.mesh.position.x = parseFloat(e.target.value);
                 document.getElementById('grating-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
+                traceRaysCallback();
+            });
+
+            document.getElementById('grating-density').addEventListener('input', (e) => {
+                const density = parseInt(e.target.value);
+                gratingData.element.linesPerMM = density;
+                document.getElementById('grating-density-value').textContent = density;
+                traceRaysCallback();
+            });
+        }
+    },
+    // NEW: Reflective Grating Setup
+    'reflective-grating': {
+        name: 'Reflective Grating',
+        init: function({ opticalElements, elementGroup, traceRaysCallback, envMap, simulationConfig }) {
+            const gratingData = createReflectiveGrating('reflective_grating_1', {x: 0, y: 0, z: 0}, 45, { linesPerMM: 600 }, envMap, elementGroup);
+            opticalElements.push(gratingData.element);
+
+            document.getElementById('pixel-viewer-container').style.display = 'none';
+
+            const controlsDiv = document.getElementById('setup-controls');
+            controlsDiv.innerHTML = `
+                <div class="control-row"><label for="grating-x">Grating Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="grating-angle">Grating Angle:</label><input type="range" id="grating-angle" min="-90" max="90" value="45" step="1"><span id="grating-angle-value">45&deg;</span></div>
+                <div class="control-row"><label for="grating-density">Grooves (L/mm):</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600</span></div>
+            `;
+
+            document.getElementById('grating-x').addEventListener('input', (e) => {
+                gratingData.mesh.position.x = parseFloat(e.target.value);
+                document.getElementById('grating-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
+                traceRaysCallback();
+            });
+
+            document.getElementById('grating-angle').addEventListener('input', (e) => {
+                const angle = parseFloat(e.target.value);
+                gratingData.mesh.rotation.y = -angle * (Math.PI / 180);
+                document.getElementById('grating-angle-value').innerHTML = `${angle}&deg;`;
                 traceRaysCallback();
             });
 
