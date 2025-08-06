@@ -377,6 +377,7 @@ export function traceRays(config) {
         
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
 
+        // Special handling for diffraction grating with white light
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating');
             if (grating) {
@@ -395,10 +396,11 @@ export function traceRays(config) {
                     const color = (m === 0) ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
                     rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 })));
                 }
-                return;
+                return; // End processing for this path
             }
         }
         
+        // Default ray drawing for all other cases
         const rayColor = finalPath.originalRay.color || ((wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength));
         rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(finalPath.path), new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.6 })));
     });
@@ -438,6 +440,8 @@ export function traceRays(config) {
                             const gray = Math.round((r + g + b) / 3);
                             pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
                         }
+                    } else {
+                        pixelCtx.fillStyle = 'rgb(0,0,0)';
                     }
                 }
                  pixelCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
