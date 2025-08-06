@@ -26,16 +26,26 @@
         <div class="control-row">
             <label for="setup-select">Optical Setup:</label>
             <select id="setup-select">
-                <option value="single-lens" selected>Single Convex Lens</option>
-                <option value="aperture">Circular Aperture</option>
-                <option value="optical-slit">Optical Slit</option>
-                <option value="flat-mirror">Flat Mirror</option>
-                <option value="spherical-mirror">Spherical Mirror</option>
-                <option value="two-lens-system">Two Lens System</option>
-                <option value="diffraction-grating">Transmissive Grating</option>
-                <option value="reflective-grating">Reflective Grating</option>
-                <option value="camera-laser">Camera (Laser)</option>
-                <option value="camera-image-object">Camera (Image Object)</option>
+                <optgroup label="Optical Instruments">
+                    <option value="camera-laser">Camera (Laser)</option>
+                    <option value="camera-image-object">Camera (Image Object)</option>
+                </optgroup>
+                <optgroup label="Lenses">
+                    <option value="single-lens" selected>Single Convex Lens</option>
+                    <option value="two-lens-system">Two Lens System</option>
+                </optgroup>
+                <optgroup label="Mirrors">
+                    <option value="flat-mirror">Flat Mirror</option>
+                    <option value="spherical-mirror">Spherical Mirror</option>
+                </optgroup>
+                <optgroup label="Apertures/Openings">
+                    <option value="aperture">Circular Aperture</option>
+                    <option value="optical-slit">Optical Slit</option>
+                </optgroup>
+                <optgroup label="Dispersive Elements">
+                    <option value="diffraction-grating">Transmissive Grating</option>
+                    <option value="reflective-grating">Reflective Grating</option>
+                </optgroup>
             </select>
         </div>
         
