@@ -1,24 +1,17 @@
-// === OPTICS CORE ENGINE - V2.20 (Boundary Fix) ===
+// === OPTICS CORE ENGINE - V3.2 (Visualization Fix) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Added strict boundary checks to the image sampling logic in the
-// 'camera-image-object' setup to prevent out-of-bounds memory access,
-// which was causing NaN propagation and rendering artifacts.
+// MODIFIED: Updated the visualization logic to correctly color rays diffracted
+// from both transmissive and reflective gratings and improved path splitting logic.
 
-/**
- * Represents a light ray with an origin, direction, and wavelength.
- */
 export class Ray {
     constructor(origin, direction, wavelength = 532, color = null) {
         this.origin = origin;
         this.direction = direction.normalize();
         this.wavelength = wavelength;
-        this.color = color; // Can be a THREE.Color object
+        this.color = color;
     }
 }
 
-/**
- * A helper function to convert a wavelength in nanometers to an RGB color for VISUALIZATION ONLY.
- */
 export function wavelengthToRGB(wavelength) {
     let r, g, b;
     if (wavelength >= 380 && wavelength < 440) {
@@ -47,9 +40,6 @@ export function wavelengthToRGB(wavelength) {
     return new THREE.Color(r * factor, g * factor, b * factor);
 }
 
-/**
- * Simulates the spectral response of a color filter.
- */
 function getFilterResponse(wavelength, filterType) {
     let peak, width;
     switch (filterType) {
@@ -62,9 +52,6 @@ function getFilterResponse(wavelength, filterType) {
     return Math.exp(exponent);
 }
 
-/**
- * Helper function for ray-sphere intersection.
- */
 export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
     const L = sphereCenter.clone().sub(ray.origin);
     const tca = L.dot(ray.direction);
@@ -86,13 +73,9 @@ export function getRaySphereIntersection(ray, sphereCenter, sphereRadius) {
     return null;
 }
 
-/**
- * --- Unified Ray Tracing Engine ---
- */
 export function traceRays(config) {
     const { rayGroup, opticalElements, laserSource, imageObject, pixelCtx, pixelCanvas, pixelGridSize, wavelength, laserPattern, setupKey, sensorType, rayCount = 100, backgroundColor = 'white' } = config;
 
-    // 1. Clear previous state
     while(rayGroup.children.length > 0){
         const obj = rayGroup.children[0];
         rayGroup.remove(obj);
@@ -121,7 +104,6 @@ export function traceRays(config) {
         imgCtx.drawImage(image, 0, 0, image.width, image.height);
         const imageData = imgCtx.getImageData(0, 0, image.width, image.height).data;
         
-        // --- Pass 1: Generate the "perfectly focused" image and source data grid ---
         const perfectImageGrid = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null));
         const sourceDataGrid = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null));
 
@@ -130,15 +112,12 @@ export function traceRays(config) {
                 const localX = (px / pixelGridSize - 0.5) * detector.mesh.geometry.parameters.width;
                 const localY = (py / pixelGridSize - 0.5) * detector.mesh.geometry.parameters.height;
                 const sensorPoint = detector.mesh.localToWorld(new THREE.Vector3(localX, -localY, 0));
-                
                 const dirToLens = lens.mesh.position.clone().sub(sensorPoint).normalize();
                 const intersectOnLens = sensorPoint.clone().add(dirToLens.clone().multiplyScalar((lens.mesh.position.x - sensorPoint.x) / dirToLens.x));
-
                 let color = { r: 0, g: 0, b: 0 };
-
                 const so_calc = Math.abs(sensorPoint.x - lens.mesh.position.x);
-                
                 const denominator = 1 / lens.focalLength - 1 / so_calc;
+
                 if (Math.abs(denominator) < 1e-9) {
                     perfectImageGrid[py][px] = color;
                     sourceDataGrid[py][px] = { origin: null, color: new THREE.Color(0,0,0) };
@@ -150,7 +129,6 @@ export function traceRays(config) {
                 const ho_y_calc = sensorPoint.y - lens.mesh.position.y;
                 const ho_z_calc = sensorPoint.z - lens.mesh.position.z;
                 const objectPlanePoint = new THREE.Vector3(lens.mesh.position.x + si_calc, lens.mesh.position.y + (ho_y_calc * M), lens.mesh.position.z + (ho_z_calc * M));
-
                 const dirFromLens = objectPlanePoint.clone().sub(intersectOnLens).normalize();
 
                 if (Math.abs(dirFromLens.x) < 1e-9) {
@@ -160,12 +138,10 @@ export function traceRays(config) {
                 }
 
                 const objectHitPoint = intersectOnLens.clone().add(dirFromLens.clone().multiplyScalar((imageObject.position.x - intersectOnLens.x) / dirFromLens.x));
-                
                 const localIntersect = imageObject.worldToLocal(objectHitPoint.clone());
                 const u = (localIntersect.x / imageObject.geometry.parameters.width) + 0.5;
                 const v = 1.0 - ((localIntersect.y / imageObject.geometry.parameters.height) + 0.5);
 
-                // --- FIX: Use strict boundary checks (< 1) to prevent off-by-one errors on image data access ---
                 if (u >= 0 && u < 1 && v >= 0 && v < 1) {
                     const imgX = Math.floor(u * image.width);
                     const imgY = Math.floor(v * image.height);
@@ -178,17 +154,14 @@ export function traceRays(config) {
             }
         }
         
-        // --- Pass 2: Calculate defocus blur (Circle of Confusion) and render final image ---
         const so_center = Math.abs(imageObject.position.x - lens.mesh.position.x);
         const si_focused = 1 / (1 / lens.focalLength - 1 / so_center);
         const si_actual = Math.abs(detector.mesh.position.x - lens.mesh.position.x);
         const R_lens = lens.mesh.geometry.parameters.radiusTop;
-        
         let coc_radius_world = 0;
         if (Math.abs(si_focused) > 1e-6) {
              coc_radius_world = (R_lens * Math.abs(si_actual - si_focused)) / Math.abs(si_focused);
         }
-        
         const detector_pixel_size_world = detector.mesh.geometry.parameters.width / pixelGridSize;
         const coc_radius_pixels = coc_radius_world / detector_pixel_size_world;
         const coc_radius_pixels_sq = coc_radius_pixels * coc_radius_pixels;
@@ -197,12 +170,11 @@ export function traceRays(config) {
         for (let py = 0; py < pixelGridSize; py++) {
             for (let px = 0; px < pixelGridSize; px++) {
                 let color;
-                if (coc_radius_pixels < 0.5) { // If blur is negligible, draw the perfect pixel
+                if (coc_radius_pixels < 0.5) {
                      color = perfectImageGrid[py][px];
                 } else {
                     let totalColor = { r: 0, g: 0, b: 0 };
                     let sampleCount = 0;
-                    
                     const startY = Math.max(0, Math.floor(py - coc_radius_pixels));
                     const endY = Math.min(pixelGridSize - 1, Math.ceil(py + coc_radius_pixels));
                     const startX = Math.max(0, Math.floor(px - coc_radius_pixels));
@@ -214,7 +186,7 @@ export function traceRays(config) {
                             const dy = y - py;
                             if (dx*dx + dy*dy <= coc_radius_pixels_sq) {
                                 const sampleColor = perfectImageGrid[y][x];
-                                if (sampleColor) { // Ensure sample is not null
+                                if (sampleColor) {
                                     totalColor.r += sampleColor.r;
                                     totalColor.g += sampleColor.g;
                                     totalColor.b += sampleColor.b;
@@ -233,7 +205,6 @@ export function traceRays(config) {
                     color = finalColor;
                 }
 
-                // Apply sensor type rendering
                 if (sensorType === 'grayscale') {
                     const gray = Math.round(color.r * 0.299 + color.g * 0.587 + color.b * 0.114);
                     pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
@@ -241,20 +212,19 @@ export function traceRays(config) {
                     const isTopRow = py % 2 === 0;
                     const isLeftColumn = px % 2 === 0;
                     if (isTopRow) {
-                        if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${color.g}, 0)`; // Green
-                        else pixelCtx.fillStyle = `rgb(${color.r}, 0, 0)`; // Red
+                        if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${color.g}, 0)`;
+                        else pixelCtx.fillStyle = `rgb(${color.r}, 0, 0)`;
                     } else {
-                        if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${color.b})`; // Blue
-                        else pixelCtx.fillStyle = `rgb(0, ${color.g}, 0)`; // Green
+                        if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${color.b})`;
+                        else pixelCtx.fillStyle = `rgb(0, ${color.g}, 0)`;
                     }
-                } else { // 'demosaiced' or default
+                } else {
                     pixelCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
                 }
                 pixelCtx.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
             }
         }
 
-        // --- Part 3: Generate sparse forward rays for visualization ONLY ---
         const CONES_TO_VISUALIZE = 30;
         const visualizationSpacing = Math.floor((pixelGridSize * pixelGridSize) / CONES_TO_VISUALIZE);
         for (let py = 0; py < pixelGridSize; py++) {
@@ -278,7 +248,6 @@ export function traceRays(config) {
             }
         }
     } else {
-        // --- Original Ray Generation for other setups ---
         const wavelengths = (wavelength === 'white') ? [450, 532, 650] : [wavelength];
         const beamSize = 1.0; 
         wavelengths.forEach(wl => {
@@ -326,7 +295,6 @@ export function traceRays(config) {
         });
     }
     
-    // --- MAIN FORWARD TRACING LOOP (processes visualization rays and other setups) ---
     const sensorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
     const trueColorIntensities = Array(pixelGridSize).fill(null).map(() => Array(pixelGridSize).fill(null).map(() => ({ r: 0, g: 0, b: 0 })));
     let maxSensorIntensity = 0;
@@ -353,7 +321,6 @@ export function traceRays(config) {
                     currentPath.path.push(result.intersection);
                     currentPath.terminated = true;
                     nextActivePaths.push(currentPath);
-                    // For non-camera setups, accumulate intensity for the 2D canvas
                     if (element.type === 'detector' && setupKey !== 'camera-image-object') {
                         const detector = element.mesh;
                         const localPoint = detector.worldToLocal(result.intersection.clone());
@@ -387,7 +354,6 @@ export function traceRays(config) {
         activePaths = nextActivePaths;
     }
 
-    // --- Visualization Drawing ---
     activePaths.forEach(finalPath => {
         if (!finalPath.terminated) {
             finalPath.path.push(finalPath.ray.origin.clone().add(finalPath.ray.direction.clone().multiplyScalar(25)));
@@ -395,18 +361,16 @@ export function traceRays(config) {
         
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
 
-        // Special handling for diffraction grating with white light
+        // FIX: Check for both grating types and use a more robust path splitting logic
         if (wavelength === 'white' && finalPath.hasSplit) {
-            const grating = opticalElements.find(el => el.type === 'grating');
+            const grating = opticalElements.find(el => el.type === 'grating' || el.type === 'reflective-grating');
             if (grating) {
-                const gratingX = grating.mesh.position.x;
-                let splitIndex = finalPath.path.findIndex(p => Math.abs(p.x - gratingX) < 1e-6);
-                if (splitIndex === -1) splitIndex = 1;
+                if (finalPath.path.length < 2) return;
 
-                const preSplitPath = finalPath.path.slice(0, splitIndex + 1);
-                const postSplitPath = finalPath.path.slice(splitIndex);
+                const preSplitPath = finalPath.path.slice(0, -1);
+                const postSplitPath = finalPath.path.slice(-2);
 
-                if (preSplitPath.length > 1) {
+                if (preSplitPath.length > 0) {
                     rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(preSplitPath), new THREE.LineBasicMaterial({ color: whiteLightColor, transparent: true, opacity: 0.6 })));
                 }
                 if (postSplitPath.length > 1) {
@@ -414,16 +378,14 @@ export function traceRays(config) {
                     const color = (m === 0) ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength);
                     rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(postSplitPath), new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.6 })));
                 }
-                return; // End processing for this path
+                return;
             }
         }
         
-        // Default ray drawing for all other cases
         const rayColor = finalPath.originalRay.color || ((wavelength === 'white') ? whiteLightColor : wavelengthToRGB(finalPath.ray.wavelength));
         rayGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(finalPath.path), new THREE.LineBasicMaterial({ color: rayColor, transparent: true, opacity: 0.6 })));
     });
 
-    // --- Final 2D Canvas Drawing (for non-camera setups) ---
     if (pixelCtx && setupKey !== 'camera-image-object') {
         const pixelSize = pixelCanvas.width / pixelGridSize;
         for (let y = 0; y < pixelGridSize; y++) {
@@ -454,7 +416,7 @@ export function traceRays(config) {
                                 if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${b})`;
                                 else pixelCtx.fillStyle = `rgb(0, ${g}, 0)`;
                             }
-                        } else { // Grayscale
+                        } else {
                             const gray = Math.round((r + g + b) / 3);
                             pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
                         }
@@ -467,3 +429,4 @@ export function traceRays(config) {
         }
     }
 }
+

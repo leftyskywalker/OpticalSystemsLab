@@ -1,6 +1,7 @@
-// === OPTICS COMPONENTS - V3.1 (Reflective Grating) ===
+// === OPTICS COMPONENTS - V3.3 (Reflection Physics Fix) ===
 // Contains the factory functions for creating optical elements.
-// NEW: Added createReflectiveGrating for building spectrometers and other reflective systems.
+// MODIFIED: Overhauled the physics in createReflectiveGrating to use a robust
+// reflection-first model, fixing the bug where rays appeared to transmit.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
@@ -16,7 +17,7 @@ export function createLens(name, position, focalLength, elementGroup) {
 
     const element = {
         mesh: mesh, type: 'thin-lens', focalLength: focalLength,
-        processRay: function(ray, originalRay, config) { // Now receives the global config
+        processRay: function(ray, originalRay, config) {
             if (ray.direction.x === 0) return null;
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
             
@@ -46,7 +47,6 @@ export function createLens(name, position, focalLength, elementGroup) {
                         const newDir = imagePoint.clone().sub(intersectPoint).normalize();
                         
                         return { newRay: new Ray(intersectPoint, newDir, ray.wavelength, ray.color) };
-
                     } else {
                         const y = intersectPoint.y - this.mesh.position.y;
                         const z = intersectPoint.z - this.mesh.position.z;
@@ -204,9 +204,6 @@ export function createDiffractionGrating(name, position, config, elementGroup) {
     return { mesh, element };
 }
 
-/**
- * NEW: Creates a reflective diffraction grating.
- */
 export function createReflectiveGrating(name, position, angle, config, envMap, elementGroup) {
     const { linesPerMM } = config;
     const gratingMaterial = new THREE.MeshStandardMaterial({
@@ -216,7 +213,7 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
     const mesh = new THREE.Mesh(gratingGeometry, gratingMaterial);
     mesh.name = name;
     mesh.position.set(position.x, position.y, position.z);
-    mesh.rotation.y = -angle * (Math.PI / 180);
+    mesh.rotation.y = -Math.PI / 2 - angle * (Math.PI / 180);
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(gratingGeometry), new THREE.LineBasicMaterial({ color: 0x333333 })));
     elementGroup.add(mesh);
 
@@ -227,31 +224,36 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
             const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
             plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
 
+            if (ray.direction.dot(normal) >= 0) {
+                return null;
+            }
+
             const intersectPoint = new THREE.Vector3();
             if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
                 if (ray.direction.dot(intersectPoint.clone().sub(ray.origin)) < 0) return null;
 
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 if (Math.abs(localPoint.x) <= gratingGeometry.parameters.width / 2 && Math.abs(localPoint.y) <= gratingGeometry.parameters.height / 2) {
-                    const tangentX = new THREE.Vector3(1, 0, 0).applyQuaternion(this.mesh.quaternion);
-                    const v_in = ray.direction;
-                    const v_in_normal_comp = v_in.dot(normal);
-                    const v_in_tangentX_comp = v_in.dot(tangentX);
-
+                    
                     const newRays = [];
                     const d = 1000000 / this.linesPerMM;
+                    const reflectedDir = ray.direction.clone().reflect(normal);
+                    const tangent = new THREE.Vector3().crossVectors(normal, new THREE.Vector3(0, 1, 0)).normalize();
 
                     for (let m = -1; m <= 1; m++) {
-                        const v_out_tangentX_comp = v_in_tangentX_comp - (m * ray.wavelength) / d;
-                        const v_out_normal_comp_sq = 1 - v_out_tangentX_comp**2 - v_in.dot(new THREE.Vector3(0,1,0).applyQuaternion(this.mesh.quaternion))**2;
+                        if (m === 0) {
+                            const newRay = new Ray(intersectPoint, reflectedDir, ray.wavelength, ray.color);
+                            newRay.diffractionOrder = 0;
+                            newRays.push(newRay);
+                            continue;
+                        }
 
-                        if (v_out_normal_comp_sq >= 0) {
-                            const v_out_normal_comp = -Math.sqrt(v_out_normal_comp_sq);
-                            const newDir = normal.clone().multiplyScalar(v_out_normal_comp)
-                                         .add(tangentX.clone().multiplyScalar(v_out_tangentX_comp))
-                                         .add(new THREE.Vector3(0,1,0).applyQuaternion(this.mesh.quaternion).multiplyScalar(v_in.dot(new THREE.Vector3(0,1,0).applyQuaternion(this.mesh.quaternion))));
+                        const sin_theta_m = (m * ray.wavelength) / d;
+                        if (Math.abs(sin_theta_m) <= 1) {
+                            const theta_m = Math.asin(sin_theta_m);
+                            const newDir = reflectedDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), theta_m);
                             
-                            const newRay = new Ray(intersectPoint, newDir.normalize(), ray.wavelength, ray.color);
+                            const newRay = new Ray(intersectPoint, newDir, ray.wavelength, ray.color);
                             newRay.diffractionOrder = m;
                             newRays.push(newRay);
                         }
@@ -374,3 +376,5 @@ export function createAperture(name, position, config, elementGroup) {
     element._rebuildMesh();
     return { mesh: element.mesh, element: element };
 }
+
+
