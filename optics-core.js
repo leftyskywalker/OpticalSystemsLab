@@ -180,9 +180,9 @@ export function traceRays(config) {
 
         for (let py = 0; py < pixelGridSize; py++) {
             for (let px = 0; px < pixelGridSize; px++) {
+                let color;
                 if (coc_radius_pixels < 0.5) { // If blur is negligible, draw the perfect pixel
-                     const color = perfectImageGrid[py][px];
-                     pixelCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                     color = perfectImageGrid[py][px];
                 } else {
                     let totalColor = { r: 0, g: 0, b: 0 };
                     let sampleCount = 0;
@@ -212,7 +212,25 @@ export function traceRays(config) {
                         finalColor.g = Math.round(totalColor.g / sampleCount);
                         finalColor.b = Math.round(totalColor.b / sampleCount);
                     }
-                    pixelCtx.fillStyle = `rgb(${finalColor.r}, ${finalColor.g}, ${finalColor.b})`;
+                    color = finalColor;
+                }
+
+                // Apply sensor type rendering
+                if (sensorType === 'grayscale') {
+                    const gray = Math.round(color.r * 0.299 + color.g * 0.587 + color.b * 0.114);
+                    pixelCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
+                } else if (sensorType === 'bayer') {
+                    const isTopRow = py % 2 === 0;
+                    const isLeftColumn = px % 2 === 0;
+                    if (isTopRow) {
+                        if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, ${color.g}, 0)`; // Green
+                        else pixelCtx.fillStyle = `rgb(${color.r}, 0, 0)`; // Red
+                    } else {
+                        if (isLeftColumn) pixelCtx.fillStyle = `rgb(0, 0, ${color.b})`; // Blue
+                        else pixelCtx.fillStyle = `rgb(0, ${color.g}, 0)`; // Green
+                    }
+                } else { // 'demosaiced' or default
+                    pixelCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
                 }
                 pixelCtx.fillRect(px * pixelSize, py * pixelSize, pixelSize, pixelSize);
             }
