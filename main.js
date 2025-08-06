@@ -42,9 +42,13 @@ scene.add(laserSource);
 
 // --- Image Plane Object & Loading Logic ---
 const textureLoader = new THREE.TextureLoader();
+// NEW: Added Cityscape, Building, and Boardwalk images
 const imageSources = {
     'color-chart': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/ColorChart.png',
-    'dolphin': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Dolphin.jpeg'
+    'dolphin': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Dolphin.jpeg',
+    'cityscape': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Cityscape.jpeg',
+    'building': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Building.jpeg',
+    'boardwalk': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Boardwalk.jpeg'
 };
 
 // Create a placeholder mesh. It will be updated when the texture loads.
@@ -57,7 +61,7 @@ imageObject.rotation.y = Math.PI / 2;
 imageObject.visible = false;
 scene.add(imageObject);
 
-// NEW: Function to load and resize the selected image
+// Function to load and resize the selected image
 function loadImage(sourceKey) {
     const imageUrl = imageSources[sourceKey];
     if (!imageUrl) {
