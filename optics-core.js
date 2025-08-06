@@ -1,7 +1,7 @@
-// === OPTICS CORE ENGINE - V3.2 (Visualization Fix) ===
+// === OPTICS CORE ENGINE - V3.3 (New Laser Shapes) ===
 // Contains the fundamental physics, ray class, and the main tracing loop.
-// MODIFIED: Updated the visualization logic to correctly color rays diffracted
-// from both transmissive and reflective gratings and improved path splitting logic.
+// MODIFIED: Added 'heart', 'star', and 'smile' cases to the laser pattern
+// generation logic using parametric equations and vertex interpolation.
 
 export class Ray {
     constructor(origin, direction, wavelength = 532, color = null) {
@@ -290,6 +290,74 @@ export function traceRays(config) {
                         patternRays.push(new Ray(startPoint, parallelDirection, wl));
                     }
                     break;
+                case 'heart':
+                    for (let i = 0; i < rayCount; i++) {
+                        const t = (i / rayCount) * 2 * Math.PI;
+                        const zOffset = (16 * Math.pow(Math.sin(t), 3)) / 16 * (beamSize / 1.5);
+                        const yOffset = (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 16 * (beamSize / 1.5);
+                        const startPoint = new THREE.Vector3(-9.75, laserSource.position.y - yOffset, laserSource.position.z + zOffset);
+                        patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                    }
+                    break;
+                case 'star':
+                    const numPoints = 5;
+                    const vertices = [];
+                    const outerRadius = beamSize / 2;
+                    const innerRadius = outerRadius * 0.5;
+                    const angleStep = Math.PI / numPoints;
+
+                    for (let i = 0; i < 2 * numPoints; i++) {
+                        const radius = (i % 2 === 0) ? outerRadius : innerRadius;
+                        const angle = i * angleStep - Math.PI / 2;
+                        vertices.push(new THREE.Vector2(
+                            radius * Math.cos(angle),
+                            radius * Math.sin(angle)
+                        ));
+                    }
+
+                    for (let i = 0; i < rayCount; i++) {
+                        const t = (i / rayCount) * (2 * numPoints);
+                        const startIndex = Math.floor(t);
+                        const endIndex = (startIndex + 1) % (2 * numPoints);
+                        const segmentT = t - startIndex;
+
+                        const startVec = vertices[startIndex];
+                        const endVec = vertices[endIndex];
+                        
+                        const point = startVec.clone().lerp(endVec, segmentT);
+
+                        const yOffset = point.y;
+                        const zOffset = point.x;
+                        const startPoint = new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset);
+                        patternRays.push(new Ray(startPoint, parallelDirection, wl));
+                    }
+                    break;
+                case 'smile':
+                    const headRays = Math.floor(rayCount * 0.5);
+                    const eyeRays = Math.floor(rayCount * 0.15);
+                    const mouthRays = rayCount - headRays - (2 * eyeRays);
+
+                    for (let i = 0; i < headRays; i++) {
+                        const angle = (i / headRays) * 2 * Math.PI;
+                        const yOffset = (beamSize / 2) * Math.sin(angle);
+                        const zOffset = (beamSize / 2) * Math.cos(angle);
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
+                    }
+                    for (let i = 0; i < eyeRays; i++) {
+                        const angle = (i / eyeRays) * 2 * Math.PI;
+                        let yOffset = (beamSize * 0.1) * Math.sin(angle) + (beamSize * 0.2);
+                        let zOffset = (beamSize * 0.1) * Math.cos(angle) - (beamSize * 0.2);
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
+                        zOffset = (beamSize * 0.1) * Math.cos(angle) + (beamSize * 0.2);
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
+                    }
+                    for (let i = 0; i < mouthRays; i++) {
+                        const angle = Math.PI + (i / mouthRays) * Math.PI;
+                        const yOffset = (beamSize * 0.3) * Math.sin(angle) - (beamSize * 0.1);
+                        const zOffset = (beamSize * 0.3) * Math.cos(angle);
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
+                    }
+                    break;
             }
             initialRays.push(...patternRays);
         });
@@ -361,7 +429,6 @@ export function traceRays(config) {
         
         const whiteLightColor = (backgroundColor === 'black') ? 0xffffff : 0x000000;
 
-        // FIX: Check for both grating types and use a more robust path splitting logic
         if (wavelength === 'white' && finalPath.hasSplit) {
             const grating = opticalElements.find(el => el.type === 'grating' || el.type === 'reflective-grating');
             if (grating) {
