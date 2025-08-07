@@ -52,7 +52,8 @@ const imageSources = {
     'cityscape': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Cityscape.jpeg',
     'building': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Building.jpeg',
     'boardwalk': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Boardwalk.jpeg',
-    'corals': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Corals.jpeg'
+    'corals': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Corals.jpeg',
+    'lagoon': 'https://raw.githubusercontent.com/leftyskywalker/OpticalSystemsLab/main/Images/Lagoon.jpeg'
 };
 
 const imageObject = new THREE.Mesh(

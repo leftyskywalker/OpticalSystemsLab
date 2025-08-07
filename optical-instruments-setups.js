@@ -144,6 +144,7 @@ export const instrumentSetups = {
                         <option value="building">Building</option>
                         <option value="boardwalk">Boardwalk</option>
                         <option value="corals">Corals</option>
+                        <option value="lagoon">Lagoon</option>
                     </select>
                 </div>
                 <div class="control-row"><label for="image-x">Position (X):</label><input type="range" id="image-x" min="-15" max="-1" value="-10" step="0.1"><span id="image-x-value">-10.0 cm</span></div>
