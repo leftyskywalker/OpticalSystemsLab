@@ -1,5 +1,9 @@
 import { traceRays } from './optics-core.js';
-import { setups } from './optical-setups.js';
+import { componentSetups } from './optical-components-setups.js';
+import { instrumentSetups } from './optical-instruments-setups.js';
+
+// Combine the two setup objects into one
+const setups = { ...componentSetups, ...instrumentSetups };
 
 // === SCENE SETUP ===
 const scene = new THREE.Scene();
@@ -170,8 +174,6 @@ function clearSetup() {
 function switchSetup(setupKey) {
     clearSetup();
     
-    // FIX: Force an update of the reflection map whenever a new setup is loaded.
-    // This ensures that mirrors and gratings are always rendered with reflections.
     cubeCamera.update(renderer, scene);
     
     if (setupKey.startsWith('camera') || setupKey === 'czerny-turner') {
@@ -266,7 +268,6 @@ function animate() {
         reflectiveElements.forEach(el => el.visible = false);
         rayGroup.visible = false;
         
-        // Position the cube camera at the average position of all reflective elements
         const centerPos = new THREE.Vector3();
         reflectiveElements.forEach(el => centerPos.add(el.position));
         centerPos.divideScalar(reflectiveElements.length);
