@@ -9,10 +9,9 @@ export const componentSetups = {
             // This setup is purely visual. It loads the 3D model of the laser.
             loadVisualModel({
                 elementGroup: elementGroup,
-                // FIX: Using the correct GitHub Pages URL that you provided. This resolves the 404 error.
                 url: 'https://leftyskywalker.github.io/OpticalSystemsLab/3D%20Models/Laser%20Asm.gltf',
-                targetDiameter: 2.0, // Set to the desired 2cm diameter
-                position: new THREE.Vector3(0, 0, 0), // Standard laser position
+                // The targetDiameter property is no longer needed.
+                position: new THREE.Vector3(-10, 0, 0), // Standard laser position
                 rotation: new THREE.Euler(0, Math.PI / 2, 0) // Point along the +X axis
             });
         }
