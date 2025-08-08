@@ -15,7 +15,6 @@ export const instrumentSetups = {
             gratingData.mesh.rotateY(Math.PI);
             const focusingMirrorData = createSphericalMirror('focusing_mirror', {x:0, y:0, z:0}, -20, 0, envMap, elementGroup);
             const detectorData = createDetector('detector1', {x:0, y:0, z:0}, elementGroup);
-            detectorData.mesh.rotation.y = Math.PI;
 
             opticalElements.push(
                 slitData.element, 
@@ -121,16 +120,24 @@ export const instrumentSetups = {
                     y: 0, 
                     z: gratingPos.z + focusingDistance * Math.sin(diffractedBeamAngle_rad) 
                 };
-                const focusingMirrorAngle_deg = diffractedBeamAngle_deg;
+                const focusingMirrorAngle_deg = diffractedBeamAngle_deg - 30;
 
                 focusingMirrorData.mesh.position.set(focusingMirrorPos.x, focusingMirrorPos.y, focusingMirrorPos.z);
                 focusingMirrorData.mesh.rotation.y = -Math.PI / 2 - focusingMirrorAngle_deg * (Math.PI / 180);
                 focusingMirrorData.element.radius = -2 * Lf_cm;
 
                 // 4. Detector
-                const detectorPos = { x: focusingMirrorPos.x, y: 0, z: focusingMirrorPos.z + Lf_cm };
+                const reflectedBeamDir = new THREE.Vector3(
+                    -Math.cos(diffractedBeamAngle_rad),
+                    0,
+                    -Math.sin(diffractedBeamAngle_rad)
+                );
+
+                const detectorPos = new THREE.Vector3(focusingMirrorPos.x, focusingMirrorPos.y, focusingMirrorPos.z)
+                    .add(reflectedBeamDir.clone().multiplyScalar(Lf_cm));
+
                 detectorData.mesh.position.set(detectorPos.x, detectorPos.y, detectorPos.z);
-                detectorData.mesh.rotation.y = Math.PI;
+                detectorData.mesh.lookAt(focusingMirrorData.mesh.position);
 
                 traceRaysCallback();
             };
@@ -150,3 +157,4 @@ export const instrumentSetups = {
         }
     }
 };
+

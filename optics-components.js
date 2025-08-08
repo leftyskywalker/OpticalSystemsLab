@@ -394,5 +394,3 @@ export function createAperture(name, position, config, elementGroup) {
     element._rebuildMesh();
     return { mesh: element.mesh, element: element };
 }
-
-
