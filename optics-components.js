@@ -6,21 +6,35 @@ import * as THREE from 'three';
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
 export function createLens(name, position, focalLength, elementGroup) {
-    // FIX: Removed 'thickness' property which is not supported in r128 of Three.js
-    const lensMaterial = new THREE.MeshPhysicalMaterial({ 
-        color: 0x22dd22, 
-        transparent: true, 
-        opacity: 0.75, 
-        roughness: 0.1, 
-        transmission: 0.8, 
-        ior: 1.5 
+    const glassMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xebebeb,      // Light greyish for a clear glass look
+        metalness: 0,
+        roughness: 0,         // Perfectly smooth for the lens face
+        ior: 1.46,            // Index of refraction for quartz glass
+        transmission: 0.9,    // Keep some physical glass property
+        opacity: 0.4,         // Make surface semi-transparent to see rays through it
+        transparent: true,
+        depthWrite: false     // CRITICAL: Allows rays behind the lens to be rendered
     });
+
+    const frostedMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xebebeb,      // Matching greyish color
+        metalness: 0,
+        roughness: 0.9,       // High roughness for a frosted look
+        ior: 1.46,
+        transmission: 0.9,
+        opacity: 0.85,        // Frosted edge is more opaque
+        transparent: true
+    });
+
+    // Apply frosted material to the sides and clear glass to the top/bottom faces
+    const lensMaterials = [frostedMaterial, glassMaterial, glassMaterial];
+
     const lensGeometry = new THREE.CylinderGeometry(3.5, 3.5, 0.2, 32);
-    const mesh = new THREE.Mesh(lensGeometry, lensMaterial);
+    const mesh = new THREE.Mesh(lensGeometry, lensMaterials);
     mesh.name = name;
     mesh.position.set(position.x, position.y, position.z);
     mesh.rotation.z = Math.PI / 2;
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(lensGeometry), new THREE.LineBasicMaterial({ color: 0x003300 })));
     elementGroup.add(mesh);
 
     const element = {
