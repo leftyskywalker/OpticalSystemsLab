@@ -2,7 +2,6 @@
 // Contains the factory functions for creating optical elements.
 // MODIFIED: Reflective grating now processes the -1 order for the spectrometer
 // to show the correct physical path of light.
-// FIXED: Added default rotation to detector to orient it correctly for camera setups.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
@@ -143,7 +142,7 @@ export function createDetector(name, position, elementGroup) {
     const mesh = new THREE.Mesh(detectorGeometry, detectorMaterial);
     mesh.name = name;
     mesh.position.set(position.x, position.y, position.z);
-    mesh.rotation.y = -Math.PI / 2; // FIX: Orient plane perpendicular to the optical (X) axis
+    mesh.rotation.y = -Math.PI / 2;
     elementGroup.add(mesh);
 
     const element = {
@@ -260,32 +259,31 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
                         p = new THREE.Vector3(0, 1, 0).applyQuaternion(this.mesh.quaternion);
                     }
                     
-                    const k_i = ray.direction;
-                    const k_i_dot_n = k_i.dot(n);
-                    
-                    if (k_i_dot_n >= 0 && ray.direction.length() > 0.1) return null; // Ray coming from behind
+                    if (ray.direction.dot(n) >= 0 && ray.direction.length() > 0.1) return null; // Ray coming from behind
 
-                    const k_i_parallel = k_i.clone().sub(n.clone().multiplyScalar(k_i_dot_n));
+                    // --- NEW DIFFRACTION LOGIC ---
+                    // 1. Calculate the simple specular (mirror) reflection vector.
+                    const k_s = ray.direction.clone().reflect(n);
 
+                    // 2. Determine which diffraction orders to process.
                     const ordersToProcess = (config && config.setupKey === 'czerny-turner') ? [-1] : [-1, 0, 1];
 
                     for (const m of ordersToProcess) {
-                        const delta_k_parallel = p.clone().multiplyScalar((m * ray.wavelength) / d);
-                        const k_f_parallel = k_i_parallel.clone().add(delta_k_parallel);
-                        const k_f_parallel_mag_sq = k_f_parallel.lengthSq();
+                        // 3. Calculate the angle of reflection to correctly scale the diffraction.
+                        const cos_theta_r = Math.abs(k_s.dot(n));
+                        if (cos_theta_r < 1e-9) continue; // Avoid division by zero at grazing angles.
 
-                        if (k_f_parallel_mag_sq > 1.0) {
-                            continue; // Evanescent wave, does not propagate
-                        }
+                        // 4. Calculate the deviation vector on the grating surface. The 1/cos(theta) term is crucial.
+                        const delta_k_surface = p.clone().multiplyScalar( (m * ray.wavelength) / (d * cos_theta_r) );
                         
-                        const k_f_normal_mag = Math.sqrt(1.0 - k_f_parallel_mag_sq);
-                        const k_f_normal = n.clone().multiplyScalar(k_f_normal_mag);
-                        const newDir = k_f_parallel.clone().add(k_f_normal);
+                        // 5. Add the deviation to the specular reflection and normalize to get the final direction.
+                        const newDir = k_s.clone().add(delta_k_surface).normalize();
                         
                         const newRay = new Ray(intersectPoint, newDir, ray.wavelength, ray.color);
                         newRay.diffractionOrder = m;
                         newRays.push(newRay);
                     }
+                    // --- END NEW LOGIC ---
 
                     if (newRays.length > 0) return { newRays: newRays };
                 }
