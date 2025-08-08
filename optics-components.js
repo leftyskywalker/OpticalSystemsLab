@@ -2,6 +2,7 @@
 // Contains the factory functions for creating optical elements.
 // MODIFIED: Reflective grating now processes the -1 order for the spectrometer
 // to show the correct physical path of light.
+// FIXED: Added default rotation to detector to orient it correctly for camera setups.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
@@ -142,6 +143,7 @@ export function createDetector(name, position, elementGroup) {
     const mesh = new THREE.Mesh(detectorGeometry, detectorMaterial);
     mesh.name = name;
     mesh.position.set(position.x, position.y, position.z);
+    mesh.rotation.y = -Math.PI / 2; // FIX: Orient plane perpendicular to the optical (X) axis
     elementGroup.add(mesh);
 
     const element = {
