@@ -12,7 +12,7 @@ export const componentSetups = {
                 // FIX: Using the correct GitHub Pages URL that you provided. This resolves the 404 error.
                 url: 'https://leftyskywalker.github.io/OpticalSystemsLab/3D%20Models/Laser%20Asm.gltf',
                 targetDiameter: 2.0, // Set to the desired 2cm diameter
-                position: new THREE.Vector3(-10, 0, 0), // Standard laser position
+                position: new THREE.Vector3(0, 0, 0), // Standard laser position
                 rotation: new THREE.Euler(0, Math.PI / 2, 0) // Point along the +X axis
             });
         }

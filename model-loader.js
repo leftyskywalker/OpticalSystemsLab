@@ -17,24 +17,38 @@ export function loadVisualModel({ elementGroup, url, targetDiameter, position, r
     loader.load(url,
         (gltf) => {
             const model = gltf.scene;
+            
+            // A wrapper group is used to cleanly handle transformations.
+            const wrapper = new THREE.Group();
 
-            // --- Scaling Logic ---
+            // 1. Calculate the bounding box of the original, unscaled model.
             const initialBox = new THREE.Box3().setFromObject(model);
-            const initialSize = initialBox.getSize(new THREE.Vector3());
-            const currentDiameter = Math.min(initialSize.x, initialSize.y);
-            if (currentDiameter > 0) {
-                const scale = targetDiameter / currentDiameter;
-                model.scale.set(scale, scale, scale);
+            const center = initialBox.getCenter(new THREE.Vector3());
+            const size = initialBox.getSize(new THREE.Vector3());
+
+            // 2. Determine a robust scale factor based on the model's largest dimension.
+            const maxDim = Math.max(size.x, size.y, size.z);
+            let scale = 1;
+            if (maxDim > 0) {
+                // Scale the model so its largest dimension matches the target diameter.
+                scale = targetDiameter / maxDim;
             }
+            model.scale.set(scale, scale, scale);
 
-            // --- Positioning Logic ---
-            const scaledBox = new THREE.Box3().setFromObject(model);
-            const center = scaledBox.getCenter(new THREE.Vector3());
-            model.position.sub(center);
-            model.rotation.copy(rotation);
-            model.position.add(position);
+            // 3. Center the model's geometry based on its true center.
+            // This is done by moving the model by the negative of its scaled center point.
+            // This line implements the logic you preferred.
+            model.position.sub(center.multiplyScalar(scale));
+            
+            // 4. Add the scaled and centered model to the wrapper group.
+            wrapper.add(model);
 
-            elementGroup.add(model);
+            // 5. Apply the final desired position and rotation to the wrapper group.
+            wrapper.position.copy(position);
+            wrapper.rotation.copy(rotation);
+
+            // 6. Add the finished, wrapped model to the scene.
+            elementGroup.add(wrapper);
         },
         undefined, 
         (error) => console.error(`An error occurred loading the model from ${url}:`, error)
