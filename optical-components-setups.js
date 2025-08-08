@@ -1,6 +1,21 @@
 import { createLens, createMirror, createDiffractionGrating, createReflectiveGrating, createSphericalMirror, createOpticalSlit, createAperture } from './optics-components.js';
+import { loadVisualModel } from './model-loader.js';
 
 export const componentSetups = {
+    'laser-model': {
+        name: 'Laser 3D Model',
+        init: function({ elementGroup }) {
+            // This setup is purely visual. It loads the 3D model of the laser.
+            loadVisualModel({
+                elementGroup: elementGroup,
+                // FIX: Using the correct GitHub Pages URL that you provided. This resolves the 404 error.
+                url: 'https://leftyskywalker.github.io/OpticalSystemsLab/3D%20Models/Laser%20Asm.gltf',
+                targetDiameter: 2.0, // Set to the desired 2cm diameter
+                position: new THREE.Vector3(-10, 0, 0), // Standard laser position
+                rotation: new THREE.Euler(0, Math.PI / 2, 0) // Point along the +X axis
+            });
+        }
+    },
     'single-lens': {
         name: 'Single Convex Lens',
         init: function({ opticalElements, elementGroup, traceRaysCallback }) {
@@ -277,3 +292,6 @@ export const componentSetups = {
         }
     },
 };
+
+
+

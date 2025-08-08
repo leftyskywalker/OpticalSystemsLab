@@ -6,7 +6,15 @@
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
 export function createLens(name, position, focalLength, elementGroup) {
-    const lensMaterial = new THREE.MeshPhysicalMaterial({ color: 0x22dd22, transparent: true, opacity: 0.75, roughness: 0.1, transmission: 0.8, ior: 1.5, thickness: 0.2 });
+    // FIX: Removed 'thickness' property which is not supported in r128 of Three.js
+    const lensMaterial = new THREE.MeshPhysicalMaterial({ 
+        color: 0x22dd22, 
+        transparent: true, 
+        opacity: 0.75, 
+        roughness: 0.1, 
+        transmission: 0.8, 
+        ior: 1.5 
+    });
     const lensGeometry = new THREE.CylinderGeometry(3.5, 3.5, 0.2, 32);
     const mesh = new THREE.Mesh(lensGeometry, lensMaterial);
     mesh.name = name;

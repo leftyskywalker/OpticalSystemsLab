@@ -26,6 +26,9 @@
         <div class="control-row">
             <label for="setup-select">Optical Setup:</label>
             <select id="setup-select">
+                <optgroup label="Visual Models">
+                    <option value="laser-model">Laser 3D Model</option>
+                </optgroup>
                 <optgroup label="Optical Instruments">
                     <option value="czerny-turner">Czerny-Turner Spectrometer</option>
                     <option value="camera-laser">Camera (Laser)</option>
@@ -105,11 +108,16 @@
         <canvas id="pixel-canvas" width="200" height="200"></canvas>
     </div>
 
+    <!-- Three.js core library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for camera manipulation -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- GLTFLoader for loading 3D models -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
+    <!-- Application Modules -->
+    <script type="module" src="model-loader.js"></script>
     <script type="module" src="main.js"></script>
 
 </body>
 </html>
-
