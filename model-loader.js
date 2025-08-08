@@ -1,3 +1,6 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
 /**
  * Loads a GLTF model, scales it to a specific size, and adds it to the scene.
  * This ensures visual components like the laser body are in scale with the optical elements.
@@ -9,43 +12,31 @@
  * @param {THREE.Euler} options.rotation - The final rotation of the model.
  */
 export function loadVisualModel({ elementGroup, url, targetDiameter, position, rotation }) {
-    // The GLTFLoader is available globally from the script tag in index.html
-    const loader = new THREE.GLTFLoader();
+    const loader = new GLTFLoader();
 
     loader.load(url,
         (gltf) => {
             const model = gltf.scene;
 
             // --- Scaling Logic ---
-            // 1. Calculate the initial bounding box to get the model's original size.
             const initialBox = new THREE.Box3().setFromObject(model);
             const initialSize = initialBox.getSize(new THREE.Vector3());
-
-            // 2. Determine the scale factor. We assume the smallest dimension (excluding depth/length) is the diameter.
             const currentDiameter = Math.min(initialSize.x, initialSize.y);
-            if (currentDiameter === 0) {
-                console.error("Could not determine a valid diameter for scaling the model.");
-                return;
+            if (currentDiameter > 0) {
+                const scale = targetDiameter / currentDiameter;
+                model.scale.set(scale, scale, scale);
             }
-            const scale = targetDiameter / currentDiameter;
-            model.scale.set(scale, scale, scale);
 
             // --- Positioning Logic ---
-            // 1. After scaling, recalculate the bounding box to find the new center.
             const scaledBox = new THREE.Box3().setFromObject(model);
             const center = scaledBox.getCenter(new THREE.Vector3());
-
-            // 2. Center the model's geometry at its origin. This makes rotation and positioning predictable.
             model.position.sub(center);
-
-            // 3. Apply the final desired rotation and position.
             model.rotation.copy(rotation);
             model.position.add(position);
 
-            // Add the prepared model to the main element group in the scene.
             elementGroup.add(model);
         },
-        undefined, // onProgress callback (not needed)
+        undefined, 
         (error) => console.error(`An error occurred loading the model from ${url}:`, error)
     );
 }

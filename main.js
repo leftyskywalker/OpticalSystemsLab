@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { traceRays } from './optics-core.js';
 import { componentSetups } from './optical-components-setups.js';
 import { instrumentSetups } from './optical-instruments-setups.js';
@@ -20,7 +22,7 @@ const cubeCamera = new THREE.CubeCamera(1, 1000, cubeRenderTarget);
 scene.add(cubeCamera);
 
 // === CONTROLS ===
-const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 
 // === LIGHTING ===

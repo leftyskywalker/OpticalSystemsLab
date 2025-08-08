@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { createLens, createMirror, createDiffractionGrating, createReflectiveGrating, createSphericalMirror, createOpticalSlit, createAperture } from './optics-components.js';
 import { loadVisualModel } from './model-loader.js';
 

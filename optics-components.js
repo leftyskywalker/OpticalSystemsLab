@@ -2,7 +2,7 @@
 // Contains the factory functions for creating optical elements.
 // MODIFIED: Reflective grating now processes the -1 order for the spectrometer
 // to show the correct physical path of light.
-
+import * as THREE from 'three';
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
 export function createLens(name, position, focalLength, elementGroup) {

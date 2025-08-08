@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { createLens, createDetector, createReflectiveGrating, createSphericalMirror, createOpticalSlit } from './optics-components.js';
 
 export const instrumentSetups = {

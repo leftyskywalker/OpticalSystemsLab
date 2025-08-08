@@ -108,15 +108,17 @@
         <canvas id="pixel-canvas" width="200" height="200"></canvas>
     </div>
 
-    <!-- Three.js core library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- OrbitControls for camera manipulation -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <!-- GLTFLoader for loading 3D models -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- FIX: Updated to use modern importmap for consistent Three.js versions -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.167.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.167.0/examples/jsm/"
+            }
+        }
+    </script>
 
-    <!-- Application Modules -->
-    <script type="module" src="model-loader.js"></script>
+    <!-- The main script is now loaded as a module -->
     <script type="module" src="main.js"></script>
 
 </body>

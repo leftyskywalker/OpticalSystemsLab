@@ -2,7 +2,7 @@
 // Contains the fundamental physics, ray class, and the main tracing loop.
 // MODIFIED: Added 'heart', 'star', and 'smile' cases to the laser pattern
 // generation logic using parametric equations and vertex interpolation.
-
+import * as THREE from 'three';
 export class Ray {
     constructor(origin, direction, wavelength = 532, color = null) {
         this.origin = origin;
