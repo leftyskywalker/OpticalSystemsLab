@@ -42,18 +42,18 @@ export const componentSetups = {
     'two-lens-system': {
         name: 'Two Lens System',
         init: function({ opticalElements, elementGroup, traceRaysCallback }) {
-            const lens1Data = createLens('lens1', {x: -3, y: 0, z: 0}, 4, elementGroup);
-            const lens2Data = createLens('lens2', {x: 3, y: 0, z: 0}, 4, elementGroup);
+            const lens1Data = createLens('lens1', {x: -4, y: 0, z: 0}, 4, elementGroup);
+            const lens2Data = createLens('lens2', {x: 4, y: 0, z: 0}, 4, elementGroup);
             opticalElements.push(lens1Data.element, lens2Data.element);
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
                 <div class="setup-title">Lens 1</div>
-                <div class="control-row"><label for="lens1-x">Position (X):</label><input type="range" id="lens1-x" min="-8" max="8" value="-3" step="0.1"><span id="lens1-x-value">-3.0 cm</span></div>
+                <div class="control-row"><label for="lens1-x">Position (X):</label><input type="range" id="lens1-x" min="-8" max="8" value="-4" step="0.1"><span id="lens1-x-value">-4.0 cm</span></div>
                 <div class="control-row"><label for="lens1-focal">Focal Length:</label><input type="range" id="lens1-focal" min="1" max="10" value="4" step="0.1"><span id="lens1-focal-value">4.0 cm</span></div>
                 <hr>
                 <div class="setup-title">Lens 2</div>
-                <div class="control-row"><label for="lens2-x">Position (X):</label><input type="range" id="lens2-x" min="-8" max="8" value="3" step="0.1"><span id="lens2-x-value">3.0 cm</span></div>
+                <div class="control-row"><label for="lens2-x">Position (X):</label><input type="range" id="lens2-x" min="-8" max="8" value="4" step="0.1"><span id="lens2-x-value">4.0 cm</span></div>
                 <div class="control-row"><label for="lens2-focal">Focal Length:</label><input type="range" id="lens2-focal" min="1" max="10" value="4" step="0.1"><span id="lens2-focal-value">4.0 cm</span></div>
             `;
 
@@ -107,14 +107,14 @@ export const componentSetups = {
     'spherical-mirror': {
             name: 'Spherical Mirror',
             init: function({ opticalElements, elementGroup, traceRaysCallback, envMap }) {
-                const mirrorData = createSphericalMirror('spherical_mirror_1', {x: 5, y: 0, z: 0}, -10, 0, envMap, elementGroup);
+                const mirrorData = createSphericalMirror('spherical_mirror_1', {x: 5, y: 0, z: 0}, -10, -45, envMap, elementGroup);
                 opticalElements.push(mirrorData.element);
 
                 const controlsDiv = document.getElementById('setup-controls');
                 controlsDiv.innerHTML = `
                     <div class="control-row"><label for="mirror-x">Mirror Position (X):</label><input type="range" id="mirror-x" min="-5" max="8" value="5" step="0.1"><span id="mirror-x-value">5.0 cm</span></div>
                     <div class="control-row"><label for="mirror-radius">Radius of Curvature:</label><input type="range" id="mirror-radius" min="-20" max="-5" value="-10" step="0.1"><span id="mirror-radius-value">-10.0 cm</span></div>
-                    <div class="control-row"><label for="mirror-angle">Mirror Angle:</label><input type="range" id="mirror-angle" min="-45" max="45" value="0" step="1"><span id="mirror-angle-value">0&deg;</span></div>`;
+                    <div class="control-row"><label for="mirror-angle">Mirror Angle:</label><input type="range" id="mirror-angle" min="-45" max="45" value="-45" step="1"><span id="mirror-angle-value">-45&deg;</span></div>`;
 
                 document.getElementById('mirror-x').addEventListener('input', (e) => {
                     mirrorData.mesh.position.x = parseFloat(e.target.value);
@@ -292,6 +292,5 @@ export const componentSetups = {
         }
     },
 };
-
 
 
