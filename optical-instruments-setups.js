@@ -51,7 +51,7 @@ export const instrumentSetups = {
                 </div>
                 <div class="control-row">
                     <label for="cz-focusing-angle">Focusing Angle:</label>
-                    <input type="range" id="cz-focusing-angle" min="-90" max="0" value="10" step="1">
+                    <input type="range" id="cz-focusing-angle" min="-90" max="0" value="-28" step="1">
                     <span id="cz-focusing-angle-value">10&deg;</span>
                 </div>
             `;

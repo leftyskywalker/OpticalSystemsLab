@@ -238,10 +238,8 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
         mesh: mesh, type: 'reflective-grating', linesPerMM: linesPerMM, lineOrientation: lineOrientation,
         processRay: function(ray, originalRay, config) {
             const plane = new THREE.Plane();
-            const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
-            plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
-
-            if (ray.direction.dot(normal) >= 0) return null;
+            const n = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion); // Grating normal vector
+            plane.setFromNormalAndCoplanarPoint(n, this.mesh.position);
 
             const intersectPoint = new THREE.Vector3();
             if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
@@ -250,39 +248,43 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
                 const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
                 if (Math.abs(localPoint.x) <= gratingGeometry.parameters.width / 2 && Math.abs(localPoint.y) <= gratingGeometry.parameters.height / 2) {
                     
-                    const reflectedDir = ray.direction.clone().reflect(normal);
-                    const d = 1000000 / this.linesPerMM;
+                    const d = 1000000 / this.linesPerMM; // Grating spacing in nm
                     const newRays = [];
 
-                    let dispersionAxis;
+                    let p; // Dispersion vector (in grating plane, perpendicular to rulings)
                     if (this.lineOrientation === 'vertical') {
-                        dispersionAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(this.mesh.quaternion);
-                    } else { // horizontal
-                        dispersionAxis = new THREE.Vector3(0, 1, 0).applyQuaternion(this.mesh.quaternion);
+                        p = new THREE.Vector3(1, 0, 0).applyQuaternion(this.mesh.quaternion);
+                    } else { 
+                        p = new THREE.Vector3(0, 1, 0).applyQuaternion(this.mesh.quaternion);
                     }
                     
-                    const rotationAxis = new THREE.Vector3().crossVectors(reflectedDir, dispersionAxis).normalize();
+                    const k_i = ray.direction;
+                    const k_i_dot_n = k_i.dot(n);
+                    
+                    if (k_i_dot_n >= 0 && ray.direction.length() > 0.1) return null; // Ray coming from behind
 
-                    const ordersToProcess = (config && config.setupKey === 'czerny-turner') ? [0, -1] : [-1, 0, 1];
+                    const k_i_parallel = k_i.clone().sub(n.clone().multiplyScalar(k_i_dot_n));
+
+                    const ordersToProcess = (config && config.setupKey === 'czerny-turner') ? [-1] : [-1, 0, 1];
 
                     for (const m of ordersToProcess) {
-                        if (m === 0) {
-                            const newRay = new Ray(intersectPoint, reflectedDir, ray.wavelength, ray.color);
-                            newRay.diffractionOrder = 0;
-                            newRays.push(newRay);
-                            continue;
-                        }
+                        const delta_k_parallel = p.clone().multiplyScalar((m * ray.wavelength) / d);
+                        const k_f_parallel = k_i_parallel.clone().add(delta_k_parallel);
+                        const k_f_parallel_mag_sq = k_f_parallel.lengthSq();
 
-                        const sin_theta_m = (m * ray.wavelength) / d;
-                        if (Math.abs(sin_theta_m) <= 1) {
-                            const theta_m = Math.asin(sin_theta_m);
-                            const newDir = reflectedDir.clone().applyAxisAngle(rotationAxis, theta_m);
-                            
-                            const newRay = new Ray(intersectPoint, newDir, ray.wavelength, ray.color);
-                            newRay.diffractionOrder = m;
-                            newRays.push(newRay);
+                        if (k_f_parallel_mag_sq > 1.0) {
+                            continue; // Evanescent wave, does not propagate
                         }
+                        
+                        const k_f_normal_mag = Math.sqrt(1.0 - k_f_parallel_mag_sq);
+                        const k_f_normal = n.clone().multiplyScalar(k_f_normal_mag);
+                        const newDir = k_f_parallel.clone().add(k_f_normal);
+                        
+                        const newRay = new Ray(intersectPoint, newDir, ray.wavelength, ray.color);
+                        newRay.diffractionOrder = m;
+                        newRays.push(newRay);
                     }
+
                     if (newRays.length > 0) return { newRays: newRays };
                 }
             }
