@@ -1,0 +1,404 @@
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "scene": 0,
+    "scenes": [
+        {
+            "nodes": [
+                0
+            ]
+        }
+    ],
+    "nodes": [
+        {
+            "children": [
+                1,
+                3,
+                5
+            ],
+            "matrix": [
+                0.001,
+                0,
+                0,
+                0,
+                0,
+                0.001,
+                0,
+                0,
+                0,
+                0,
+                0.001,
+                0,
+                0,
+                0,
+                0,
+                1
+            ],
+            "name": "Laser Asm",
+            "extras": {
+                "Dtk_PrototypeID": 1
+            }
+        },
+        {
+            "children": [
+                2
+            ],
+            "matrix": [
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                682.5987184,
+                833.6256921,
+                1290.679694,
+                1
+            ],
+            "name": "Shaft-1",
+            "extras": {
+                "Dtk_PrototypeID": 3
+            }
+        },
+        {
+            "mesh": 0,
+            "name": "Mesh"
+        },
+        {
+            "children": [
+                4
+            ],
+            "matrix": [
+                0.6804851244,
+                0,
+                0.7327618955,
+                0,
+                0,
+                1,
+                0,
+                0,
+                -0.7327618955,
+                0,
+                0.6804851244,
+                0,
+                682.5987184,
+                913.6256921,
+                1290.679694,
+                1
+            ],
+            "name": "Tip-1",
+            "extras": {
+                "Dtk_PrototypeID": 5
+            }
+        },
+        {
+            "mesh": 1,
+            "name": "Mesh"
+        },
+        {
+            "children": [
+                6
+            ],
+            "matrix": [
+                0.9999969956,
+                0,
+                0.002451295233,
+                0,
+                0,
+                1,
+                0,
+                0,
+                -0.002451295233,
+                0,
+                0.9999969956,
+                0,
+                682.5987184,
+                828.6256921,
+                1290.679694,
+                1
+            ],
+            "name": "End-1",
+            "extras": {
+                "Dtk_PrototypeID": 7
+            }
+        },
+        {
+            "mesh": 2,
+            "name": "Mesh"
+        }
+    ],
+    "meshes": [
+        {
+            "primitives": [
+                {
+                    "attributes": {
+                        "NORMAL": 2,
+                        "POSITION": 1
+                    },
+                    "indices": 0,
+                    "material": 0,
+                    "mode": 4
+                }
+            ]
+        },
+        {
+            "primitives": [
+                {
+                    "attributes": {
+                        "NORMAL": 5,
+                        "POSITION": 4
+                    },
+                    "indices": 3,
+                    "material": 1,
+                    "mode": 4
+                }
+            ]
+        },
+        {
+            "primitives": [
+                {
+                    "attributes": {
+                        "NORMAL": 8,
+                        "POSITION": 7
+                    },
+                    "indices": 6,
+                    "material": 1,
+                    "mode": 4
+                }
+            ]
+        }
+    ],
+    "accessors": [
+        {
+            "bufferView": 0,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 1578,
+            "max": [
+                529
+            ],
+            "min": [
+                0
+            ],
+            "type": "SCALAR"
+        },
+        {
+            "bufferView": 1,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 530,
+            "max": [
+                9.965883255,
+                80,
+                10
+            ],
+            "min": [
+                -9.965883255,
+                0,
+                -12
+            ],
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 1,
+            "byteOffset": 6360,
+            "componentType": 5126,
+            "count": 530,
+            "max": [
+                1,
+                1,
+                1
+            ],
+            "min": [
+                -1,
+                -1,
+                -1
+            ],
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 2,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 1116,
+            "max": [
+                263
+            ],
+            "min": [
+                0
+            ],
+            "type": "SCALAR"
+        },
+        {
+            "bufferView": 3,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 264,
+            "max": [
+                9.965883255,
+                13.58451843,
+                10
+            ],
+            "min": [
+                -9.965883255,
+                0,
+                -10
+            ],
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 3,
+            "byteOffset": 3168,
+            "componentType": 5126,
+            "count": 264,
+            "max": [
+                0.996584475,
+                1,
+                1
+            ],
+            "min": [
+                -0.996584475,
+                -1,
+                -1
+            ],
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 4,
+            "byteOffset": 0,
+            "componentType": 5123,
+            "count": 666,
+            "max": [
+                225
+            ],
+            "min": [
+                0
+            ],
+            "type": "SCALAR"
+        },
+        {
+            "bufferView": 5,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 226,
+            "max": [
+                9.965883255,
+                5,
+                10
+            ],
+            "min": [
+                -9.965883255,
+                -7.771561172e-16,
+                -10
+            ],
+            "type": "VEC3"
+        },
+        {
+            "bufferView": 5,
+            "byteOffset": 2712,
+            "componentType": 5126,
+            "count": 226,
+            "max": [
+                0.996584475,
+                1,
+                1
+            ],
+            "min": [
+                -0.996584475,
+                -1,
+                -1
+            ],
+            "type": "VEC3"
+        }
+    ],
+    "materials": [
+        {
+            "pbrMetallicRoughness": {
+                "baseColorFactor": [
+                    0.2509803922,
+                    0.2509803922,
+                    0.2509803922,
+                    1
+                ],
+                "metallicFactor": 0,
+                "roughnessFactor": 1
+            },
+            "doubleSided": true,
+            "alphaMode": "OPAQUE",
+            "extras": {
+                "Dtk_ColorId": 1
+            }
+        },
+        {
+            "pbrMetallicRoughness": {
+                "baseColorFactor": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "metallicFactor": 0,
+                "roughnessFactor": 1
+            },
+            "doubleSided": true,
+            "alphaMode": "OPAQUE",
+            "extras": {
+                "Dtk_ColorId": 4
+            }
+        }
+    ],
+    "bufferViews": [
+        {
+            "buffer": 0,
+            "byteOffset": 0,
+            "byteLength": 3156,
+            "target": 34963
+        },
+        {
+            "buffer": 0,
+            "byteOffset": 3156,
+            "byteLength": 12720,
+            "byteStride": 12,
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteOffset": 15876,
+            "byteLength": 2232,
+            "target": 34963
+        },
+        {
+            "buffer": 0,
+            "byteOffset": 18108,
+            "byteLength": 6336,
+            "byteStride": 12,
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteOffset": 24444,
+            "byteLength": 1332,
+            "target": 34963
+        },
+        {
+            "buffer": 0,
+            "byteOffset": 25776,
+            "byteLength": 5424,
+            "byteStride": 12,
+            "target": 34962
+        }
+    ],
+    "buffers": [
+        {
+            "byteLength": 31200,
+            "uri": "Laser Asm.bin"
+        }
+    ]
+}
