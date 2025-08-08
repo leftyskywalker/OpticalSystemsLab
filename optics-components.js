@@ -1,7 +1,7 @@
-// === OPTICS COMPONENTS - V3.4 (Grating Orientation) ===
+// === OPTICS COMPONENTS - V3.5 (Spectrometer Ray Filtering) ===
 // Contains the factory functions for creating optical elements.
-// MODIFIED: Added a 'lineOrientation' property to both transmissive and reflective
-// gratings to allow toggling between horizontal and vertical dispersion.
+// MODIFIED: Reflective grating now conditionally filters diffraction orders
+// based on the setup to provide a cleaner visualization for the spectrometer.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
@@ -228,7 +228,7 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
 
     const element = {
         mesh: mesh, type: 'reflective-grating', linesPerMM: linesPerMM, lineOrientation: lineOrientation,
-        processRay: function(ray, originalRay) {
+        processRay: function(ray, originalRay, config) {
             const plane = new THREE.Plane();
             const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
             plane.setFromNormalAndCoplanarPoint(normal, this.mesh.position);
@@ -255,7 +255,10 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
                     
                     const rotationAxis = new THREE.Vector3().crossVectors(reflectedDir, dispersionAxis).normalize();
 
-                    for (let m = -1; m <= 1; m++) {
+                    // Conditionally process diffraction orders for a cleaner spectrometer view
+                    const ordersToProcess = (config && config.setupKey === 'czerny-turner') ? [0, 1] : [-1, 0, 1];
+
+                    for (const m of ordersToProcess) {
                         if (m === 0) {
                             const newRay = new Ray(intersectPoint, reflectedDir, ray.wavelength, ray.color);
                             newRay.diffractionOrder = 0;
