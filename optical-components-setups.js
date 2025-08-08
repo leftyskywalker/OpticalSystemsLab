@@ -12,7 +12,7 @@ export const componentSetups = {
                 url: 'https://leftyskywalker.github.io/OpticalSystemsLab/3D%20Models/Laser%20Asm.gltf',
                 // The targetDiameter property is no longer needed.
                 position: new THREE.Vector3(-10, 0, 0), // Standard laser position
-                rotation: new THREE.Euler(0, Math.PI / 2, 0) // Point along the +X axis
+                rotation: new THREE.Euler(0, 0, 0) // Point along the +X axis
             });
         }
     },
