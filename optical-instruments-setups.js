@@ -49,12 +49,18 @@ export const instrumentSetups = {
                     <input type="range" id="cz-focusing-distance" min="5" max="20" value="10" step="0.5">
                     <span id="cz-focusing-distance-value">10.0 cm</span>
                 </div>
+                <div class="control-row">
+                    <label for="cz-focusing-angle">Focusing Angle:</label>
+                    <input type="range" id="cz-focusing-angle" min="-90" max="0" value="10" step="1">
+                    <span id="cz-focusing-angle-value">10&deg;</span>
+                </div>
             `;
 
             const angleSlider = document.getElementById('cz-collimating-angle');
             const densitySlider = document.getElementById('cz-grating-density');
             const gratingDistSlider = document.getElementById('cz-grating-distance');
             const focusingDistSlider = document.getElementById('cz-focusing-distance');
+            const focusingAngleSlider = document.getElementById('cz-focusing-angle');
             
             // --- Spectrometer Update Function ---
             const updateSpectrometerLayout = () => {
@@ -62,11 +68,13 @@ export const instrumentSetups = {
                 const G = parseInt(densitySlider.value);
                 const gratingDistance = parseFloat(gratingDistSlider.value);
                 const focusingDistance = parseFloat(focusingDistSlider.value);
+                const focusingMirrorAngle_deg = parseFloat(focusingAngleSlider.value);
 
                 document.getElementById('cz-collimating-angle-value').innerHTML = `${collimatingMirrorAngle_deg}&deg;`;
                 document.getElementById('cz-grating-density-value').textContent = `${G} L/mm`;
                 document.getElementById('cz-grating-distance-value').textContent = `${gratingDistance.toFixed(1)} cm`;
                 document.getElementById('cz-focusing-distance-value').textContent = `${focusingDistance.toFixed(1)} cm`;
+                document.getElementById('cz-focusing-angle-value').innerHTML = `${focusingMirrorAngle_deg}&deg;`;
                 
                 const phi_deg = 30.0;
                 const lambda_c = 550;
@@ -116,7 +124,6 @@ export const instrumentSetups = {
                     y: 0, 
                     z: gratingPos.z + focusingDistance * Math.sin(diffractedBeamAngle_rad) 
                 };
-                const focusingMirrorAngle_deg = diffractedBeamAngle_deg - 30;
 
                 focusingMirrorData.mesh.position.set(focusingMirrorPos.x, focusingMirrorPos.y, focusingMirrorPos.z);
                 focusingMirrorData.mesh.rotation.y = -Math.PI / 2 - focusingMirrorAngle_deg * (Math.PI / 180);
@@ -145,6 +152,7 @@ export const instrumentSetups = {
             densitySlider.addEventListener('input', updateSpectrometerLayout);
             gratingDistSlider.addEventListener('input', updateSpectrometerLayout);
             focusingDistSlider.addEventListener('input', updateSpectrometerLayout);
+            focusingAngleSlider.addEventListener('input', updateSpectrometerLayout);
             
             updateSpectrometerLayout();
 
@@ -155,5 +163,4 @@ export const instrumentSetups = {
         }
     }
 };
-
 
