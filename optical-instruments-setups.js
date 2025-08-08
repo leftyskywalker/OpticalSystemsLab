@@ -63,13 +63,11 @@ export const instrumentSetups = {
                 const gratingDistance = parseFloat(gratingDistSlider.value);
                 const focusingDistance = parseFloat(focusingDistSlider.value);
 
-                // Update UI text values
                 document.getElementById('cz-collimating-angle-value').innerHTML = `${collimatingMirrorAngle_deg}&deg;`;
                 document.getElementById('cz-grating-density-value').textContent = `${G} L/mm`;
                 document.getElementById('cz-grating-distance-value').textContent = `${gratingDistance.toFixed(1)} cm`;
                 document.getElementById('cz-focusing-distance-value').textContent = `${focusingDistance.toFixed(1)} cm`;
                 
-                // --- Design Calculations ---
                 const phi_deg = 30.0;
                 const lambda_c = 550;
                 const phi_rad = phi_deg * (Math.PI / 180);
@@ -77,7 +75,7 @@ export const instrumentSetups = {
                 let alpha_rad, beta_rad;
                 const asin_arg = (lambda_c * G * 1e-6) / (2 * Math.cos(phi_rad / 2));
                 if (Math.abs(asin_arg) > 1) {
-                    console.warn("Cannot calculate grating angle - invalid configuration. Try a lower density.");
+                    console.warn("Cannot calculate grating angle - invalid configuration.");
                     return;
                 }
                 alpha_rad = Math.asin(asin_arg) - (phi_rad / 2);
@@ -89,8 +87,6 @@ export const instrumentSetups = {
 
                 const Lf_cm = (detectorWidth * Math.cos(beta_rad)) / (G * wavelengthRange * 1e-7);
                 const Lc_cm = Lf_cm * (Math.cos(alpha_rad) / (M * Math.cos(beta_rad)));
-
-                // --- Update Component Positions and Properties ---
                 
                 // 1. Collimating Mirror
                 const collimatingMirrorPos = { x: slitPos.x + Lc_cm, y: 0, z: 0 };
@@ -112,7 +108,7 @@ export const instrumentSetups = {
 
                 // 3. Focusing Mirror
                 const beta_deg = beta_rad * (180 / Math.PI); 
-                const diffractedBeamAngle_deg = gratingAngle_deg + beta_deg;
+                const diffractedBeamAngle_deg = gratingAngle_deg + beta_deg; // Use -1 order
                 const diffractedBeamAngle_rad = diffractedBeamAngle_deg * (Math.PI / 180);
 
                 const focusingMirrorPos = { 
@@ -126,17 +122,19 @@ export const instrumentSetups = {
                 focusingMirrorData.mesh.rotation.y = -Math.PI / 2 - focusingMirrorAngle_deg * (Math.PI / 180);
                 focusingMirrorData.element.radius = -2 * Lf_cm;
 
-                // 4. Detector
-                const reflectedBeamDir = new THREE.Vector3(
-                    -Math.cos(diffractedBeamAngle_rad),
-                    0,
-                    -Math.sin(diffractedBeamAngle_rad)
-                );
+                // 4. Detector (Corrected Position & Orientation)
+                const incidentToFocusingDir = new THREE.Vector3().subVectors(
+                    new THREE.Vector3(focusingMirrorPos.x, focusingMirrorPos.y, focusingMirrorPos.z),
+                    new THREE.Vector3(gratingPos.x, gratingPos.y, gratingPos.z)
+                ).normalize();
+
+                const mirrorNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(focusingMirrorData.mesh.quaternion);
+                const reflectedDir = incidentToFocusingDir.clone().reflect(mirrorNormal);
 
                 const detectorPos = new THREE.Vector3(focusingMirrorPos.x, focusingMirrorPos.y, focusingMirrorPos.z)
-                    .add(reflectedBeamDir.clone().multiplyScalar(Lf_cm));
+                    .add(reflectedDir.clone().multiplyScalar(Lf_cm));
 
-                detectorData.mesh.position.set(detectorPos.x, detectorPos.y, detectorPos.z);
+                detectorData.mesh.position.copy(detectorPos);
                 detectorData.mesh.lookAt(focusingMirrorData.mesh.position);
 
                 traceRaysCallback();
@@ -157,4 +155,5 @@ export const instrumentSetups = {
         }
     }
 };
+
 

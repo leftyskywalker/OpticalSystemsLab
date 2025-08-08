@@ -1,7 +1,7 @@
-// === OPTICS COMPONENTS - V3.5 (Spectrometer Ray Filtering) ===
+// === OPTICS COMPONENTS - V3.7 (Corrected Spectrometer Orders) ===
 // Contains the factory functions for creating optical elements.
-// MODIFIED: Reflective grating now conditionally filters diffraction orders
-// based on the setup to provide a cleaner visualization for the spectrometer.
+// MODIFIED: Reflective grating now processes the -1 order for the spectrometer
+// to show the correct physical path of light.
 
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
@@ -142,17 +142,25 @@ export function createDetector(name, position, elementGroup) {
     const mesh = new THREE.Mesh(detectorGeometry, detectorMaterial);
     mesh.name = name;
     mesh.position.set(position.x, position.y, position.z);
-    mesh.rotation.y = Math.PI / 2;
     elementGroup.add(mesh);
 
     const element = {
         mesh: mesh, type: 'detector',
         processRay: function(ray, originalRay) {
-            const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(1, 0, 0), this.mesh.position);
+            const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
+            const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, this.mesh.position);
+            
+            if (ray.direction.dot(normal) >= 0) {
+                return null;
+            }
+
             const intersectPoint = new THREE.Vector3();
             if (plane.intersectLine(new THREE.Line3(ray.origin, ray.origin.clone().add(ray.direction.clone().multiplyScalar(100))), intersectPoint)) {
                 if (ray.direction.dot(intersectPoint.clone().sub(ray.origin)) > 0) {
-                    return { intersection: intersectPoint, wavelength: ray.wavelength, color: ray.color };
+                    const localPoint = this.mesh.worldToLocal(intersectPoint.clone());
+                    if (Math.abs(localPoint.x) <= detectorGeometry.parameters.width / 2 && Math.abs(localPoint.y) <= detectorGeometry.parameters.height / 2) {
+                        return { intersection: intersectPoint, wavelength: ray.wavelength, color: ray.color };
+                    }
                 }
             }
             return null;
@@ -255,8 +263,7 @@ export function createReflectiveGrating(name, position, angle, config, envMap, e
                     
                     const rotationAxis = new THREE.Vector3().crossVectors(reflectedDir, dispersionAxis).normalize();
 
-                    // Conditionally process diffraction orders for a cleaner spectrometer view
-                    const ordersToProcess = (config && config.setupKey === 'czerny-turner') ? [0, 1] : [-1, 0, 1];
+                    const ordersToProcess = (config && config.setupKey === 'czerny-turner') ? [0, -1] : [-1, 0, 1];
 
                     for (const m of ordersToProcess) {
                         if (m === 0) {
