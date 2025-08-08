@@ -30,14 +30,15 @@ export const instrumentSetups = {
             const slitData = createOpticalSlit('slit1', slitPos, { slitWidth: 50 / 10000, slitHeight: 1.2 }, elementGroup);
 
             const collimatingMirrorPos = { x: slitPos.x + Lc_cm, y: 0, z: 0 };
-            const collimatingMirrorData = createSphericalMirror('collimating_mirror', collimatingMirrorPos, -2 * Lc_cm, -45, envMap, elementGroup);
-            
-            const gratingPos = { x: slitPos.x + Lc_cm, y: 0, z: 10 };
-            const gratingAngle_deg = (alpha_rad * (180 / Math.PI)) - 90;
+            const collimatingMirrorAngle_deg = -20;
+            const collimatingMirrorData = createSphericalMirror('collimating_mirror', collimatingMirrorPos, -2 * Lc_cm, collimatingMirrorAngle_deg, envMap, elementGroup);
+
+            const gratingPos = { x: slitPos.x + Lc_cm - (10 * Math.cos(2 *collimatingMirrorAngle_deg * (Math.PI / 180))), y: 0, z: -10 * Math.sin(2 *collimatingMirrorAngle_deg * (Math.PI / 180))};
+            const gratingAngle_deg = (alpha_rad * (180 / Math.PI)) + 2 * collimatingMirrorAngle_deg;
             const gratingData = createReflectiveGrating('grating', gratingPos, gratingAngle_deg, { linesPerMM: G, lineOrientation: 'vertical' }, envMap, elementGroup);
             gratingData.mesh.rotateY(Math.PI);
-            
-            const focusingMirrorPos = { x: gratingPos.x + 10 * Math.cos(60 * (Math.PI / 180)), y: 0, z: gratingPos.z - 10 * Math.sin(60 * (Math.PI / 180)) };
+
+            const focusingMirrorPos = { x: gratingPos.x - (10 * Math.cos((gratingAngle_deg - 33.36) * (Math.PI / 180))), y: 0, z: gratingPos.z + (10 * Math.sin((gratingAngle_deg - 33.36) * (Math.PI / 180))) };
             const focusingMirrorAngle_deg = -90;
             const focusingMirrorData = createSphericalMirror('focusing_mirror', focusingMirrorPos, -2 * Lf_cm, focusingMirrorAngle_deg, envMap, elementGroup);
             
