@@ -225,7 +225,7 @@ export const componentSetups = {
             controlsDiv.innerHTML = `
                 <div class="setup-title">Grating</div>
                 <div class="control-row"><label for="grating-x">Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="grating-density">Groove Density:</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600 L/mm</span></div>
+                <div class="control-row"><label for="grating-density">Grooves:</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600 L/mm</span></div>
                 <div class="control-row">
                     <label for="grating-orientation">Line Orientation:</label>
                     <select id="grating-orientation">
@@ -265,7 +265,7 @@ export const componentSetups = {
                 <div class="setup-title">Grating</div>
                 <div class="control-row"><label for="grating-x">Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
                 <div class="control-row"><label for="grating-angle">Angle:</label><input type="range" id="grating-angle" min="-45" max="45" value="0" step="1"><span id="grating-angle-value">0&deg;</span></div>
-                <div class="control-row"><label for="grating-density">Grooves (L/mm):</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600</span></div>
+                <div class="control-row"><label for="grating-density">Grooves:</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600 L/mm</span></div>
                 <div class="control-row">
                     <label for="grating-orientation">Line Orientation:</label>
                     <select id="grating-orientation">
@@ -293,7 +293,7 @@ export const componentSetups = {
             document.getElementById('grating-density').addEventListener('input', (e) => {
                 const density = parseInt(e.target.value);
                 gratingData.element.linesPerMM = density;
-                document.getElementById('grating-density-value').textContent = density;
+                document.getElementById('grating-density-value').textContent = `${density} L/mm`;
                 traceRaysCallback();
             });
             

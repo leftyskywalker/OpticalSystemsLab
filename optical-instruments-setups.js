@@ -34,7 +34,7 @@ export const instrumentSetups = {
                     <span id="cz-collimating-angle-value">-20&deg;</span>
                 </div>
                 <div class="control-row">
-                    <label for="cz-grating-density">Grating Density (L/mm):</label>
+                    <label for="cz-grating-density">Grooves:</label>
                     <input type="range" id="cz-grating-density" min="300" max="2400" value="1000" step="50">
                     <span id="cz-grating-density-value">1000 L/mm</span>
                 </div>

@@ -8,12 +8,12 @@ import { Ray, getRaySphereIntersection } from './optics-core.js';
 export function createLens(name, position, focalLength, elementGroup) {
     // --- Materials Definition ---
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xebebeb,
+        color: 0xffffff, // Brighter color for better visibility
         metalness: 0,
         roughness: 0,
         ior: 1.46,
         transmission: 0.9,
-        opacity: 0.4,
+        opacity: 0.7, // Increased opacity for better visibility
         transparent: true,
         depthWrite: false
     });
