@@ -6,39 +6,78 @@ import * as THREE from 'three';
 import { Ray, getRaySphereIntersection } from './optics-core.js';
 
 export function createLens(name, position, focalLength, elementGroup) {
+    // --- Materials Definition ---
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xebebeb,      // Light greyish for a clear glass look
+        color: 0xebebeb,
         metalness: 0,
-        roughness: 0,         // Perfectly smooth for the lens face
-        ior: 1.46,            // Index of refraction for quartz glass
-        transmission: 0.9,    // Keep some physical glass property
-        opacity: 0.4,         // Make surface semi-transparent to see rays through it
+        roughness: 0,
+        ior: 1.46,
+        transmission: 0.9,
+        opacity: 0.4,
         transparent: true,
-        depthWrite: false     // CRITICAL: Allows rays behind the lens to be rendered
+        depthWrite: false
     });
 
     const frostedMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xebebeb,      // Matching greyish color
+        color: 0xebebeb,
         metalness: 0,
-        roughness: 0.9,       // High roughness for a frosted look
+        roughness: 0.9,
         ior: 1.46,
         transmission: 0.9,
-        opacity: 0.85,        // Frosted edge is more opaque
+        opacity: 0.85,
         transparent: true
     });
 
-    // Apply frosted material to the sides and clear glass to the top/bottom faces
-    const lensMaterials = [frostedMaterial, glassMaterial, glassMaterial];
+    // --- 1. Visual Biconvex Mesh Construction ---
+    const lensGroup = new THREE.Group();
+    const lensRadius = 3.5;
+    const edgeThickness = 0.2;
+    const centerThickness = 0.7;
+    const segments = 64;
 
-    const lensGeometry = new THREE.CylinderGeometry(3.5, 3.5, 0.2, 32);
-    const mesh = new THREE.Mesh(lensGeometry, lensMaterials);
-    mesh.name = name;
-    mesh.position.set(position.x, position.y, position.z);
-    mesh.rotation.z = Math.PI / 2;
-    elementGroup.add(mesh);
+    const edgeGeom = new THREE.CylinderGeometry(lensRadius, lensRadius, edgeThickness, segments, 1, false);
+    const edgeMesh = new THREE.Mesh(edgeGeom, frostedMaterial);
+    lensGroup.add(edgeMesh);
 
+    const h = (centerThickness - edgeThickness) / 2.0;
+    if (h > 0) {
+        const r = lensRadius;
+        const radiusOfCurvature = (r * r + h * h) / (2 * h);
+        const thetaLength = Math.asin(r / radiusOfCurvature);
+        const capGeom = new THREE.SphereGeometry(radiusOfCurvature, segments, segments, 0, Math.PI * 2, 0, thetaLength);
+        
+        const topCapMesh = new THREE.Mesh(capGeom, glassMaterial);
+        topCapMesh.position.y = (edgeThickness / 2) - (radiusOfCurvature * Math.cos(thetaLength));
+        lensGroup.add(topCapMesh);
+        
+        const bottomCapMesh = new THREE.Mesh(capGeom, glassMaterial);
+        bottomCapMesh.rotation.x = Math.PI;
+        bottomCapMesh.position.y = (-edgeThickness / 2) + (radiusOfCurvature * Math.cos(thetaLength));
+        lensGroup.add(bottomCapMesh);
+    }
+    
+    lensGroup.name = name + "_visual";
+    lensGroup.position.set(position.x, position.y, position.z);
+    lensGroup.rotation.z = Math.PI / 2;
+    elementGroup.add(lensGroup);
+
+    // --- 2. Invisible Referential Mesh for Ray Tracing ---
+    // This simple cylinder provides the geometric data needed by the ray tracer.
+    const refGeometry = new THREE.CylinderGeometry(lensRadius, lensRadius, edgeThickness, 32);
+    const refMesh = new THREE.Mesh(refGeometry, new THREE.MeshBasicMaterial({ visible: false }));
+    refMesh.name = name;
+    refMesh.position.copy(lensGroup.position);
+    refMesh.rotation.copy(lensGroup.rotation);
+    elementGroup.add(refMesh);
+
+
+    // --- 3. Logical Element for Ray Tracing ---
+    // The logical element points to the invisible 'refMesh' for its properties.
     const element = {
-        mesh: mesh, type: 'thin-lens', focalLength: focalLength,
+        mesh: refMesh, // Use the invisible mesh for physics
+        visualMesh: lensGroup, // Keep a reference to the visible mesh
+        type: 'thin-lens',
+        focalLength: focalLength,
         processRay: function(ray, originalRay, config) {
             if (ray.direction.x === 0) return null;
             const t = (this.mesh.position.x - ray.origin.x) / ray.direction.x;
@@ -48,7 +87,7 @@ export function createLens(name, position, focalLength, elementGroup) {
                 const intersectPointLocal = this.mesh.worldToLocal(intersectPoint.clone());
                 const distFromCenter = Math.sqrt(intersectPointLocal.x**2 + intersectPointLocal.z**2);
 
-                if (distFromCenter <= lensGeometry.parameters.radiusTop + 1e-6) {
+                if (distFromCenter <= this.mesh.geometry.parameters.radiusTop + 1e-6) { // Uses refMesh geometry
                     if (config && config.setupKey === 'camera-image-object') {
                         const objectPoint = originalRay.origin;
                         const lensPosition = this.mesh.position;
@@ -83,7 +122,10 @@ export function createLens(name, position, focalLength, elementGroup) {
             return null;
         }
     };
-    return { mesh, element };
+
+    // The returned `mesh` is now the visual group, but the `element` holds the logic.
+    // The setup controls will need to move both the visual and logical meshes.
+    return { mesh: lensGroup, logicalElement: element };
 }
 
 export function createMirror(name, position, angle, envMap, elementGroup) {

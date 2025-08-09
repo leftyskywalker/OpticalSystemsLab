@@ -10,17 +10,16 @@ export const componentSetups = {
             loadVisualModel({
                 elementGroup: elementGroup,
                 url: 'https://leftyskywalker.github.io/OpticalSystemsLab/3D%20Models/Laser%20Asm.gltf',
-                // The targetDiameter property is no longer needed.
-                position: new THREE.Vector3(-10, 0, 0), // Standard laser position
-                rotation: new THREE.Euler(0, 0, 0) // Point along the +X axis
+                position: new THREE.Vector3(-10, 0, 0),
+                rotation: new THREE.Euler(0, 0, 0)
             });
         }
     },
     'single-lens': {
         name: 'Single Convex Lens',
         init: function({ opticalElements, elementGroup, traceRaysCallback }) {
-            const lensData = createLens('lens1', {x: 0, y: 0, z: 0}, 4, elementGroup);
-            opticalElements.push(lensData.element);
+            const { mesh: lensVisual, logicalElement: lensElement } = createLens('lens1', {x: 0, y: 0, z: 0}, 4, elementGroup);
+            opticalElements.push(lensElement);
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
@@ -28,12 +27,14 @@ export const componentSetups = {
                 <div class="control-row"><label for="focal-length">Focal Length:</label><input type="range" id="focal-length" min="1" max="10" value="4" step="0.1"><span id="focal-length-value">4.0 cm</span></div>`;
 
             document.getElementById('lens-x').addEventListener('input', (e) => {
-                lensData.mesh.position.x = parseFloat(e.target.value);
-                document.getElementById('lens-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
+                const newX = parseFloat(e.target.value);
+                lensVisual.position.x = newX;
+                lensElement.mesh.position.x = newX;
+                document.getElementById('lens-x-value').textContent = newX.toFixed(1) + ' cm';
                 traceRaysCallback();
             });
             document.getElementById('focal-length').addEventListener('input', (e) => {
-                lensData.element.focalLength = parseFloat(e.target.value);
+                lensElement.focalLength = parseFloat(e.target.value);
                 document.getElementById('focal-length-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm';
                 traceRaysCallback();
             });
@@ -42,9 +43,9 @@ export const componentSetups = {
     'two-lens-system': {
         name: 'Two Lens System',
         init: function({ opticalElements, elementGroup, traceRaysCallback }) {
-            const lens1Data = createLens('lens1', {x: -4, y: 0, z: 0}, 4, elementGroup);
-            const lens2Data = createLens('lens2', {x: 4, y: 0, z: 0}, 4, elementGroup);
-            opticalElements.push(lens1Data.element, lens2Data.element);
+            const { mesh: lens1Visual, logicalElement: lens1Element } = createLens('lens1', {x: -4, y: 0, z: 0}, 4, elementGroup);
+            const { mesh: lens2Visual, logicalElement: lens2Element } = createLens('lens2', {x: 4, y: 0, z: 0}, 4, elementGroup);
+            opticalElements.push(lens1Element, lens2Element);
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
@@ -58,22 +59,26 @@ export const componentSetups = {
             `;
 
             document.getElementById('lens1-x').addEventListener('input', (e) => { 
-                lens1Data.mesh.position.x = parseFloat(e.target.value); 
-                document.getElementById('lens1-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
+                const newX = parseFloat(e.target.value);
+                lens1Visual.position.x = newX;
+                lens1Element.mesh.position.x = newX;
+                document.getElementById('lens1-x-value').textContent = newX.toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
             document.getElementById('lens1-focal').addEventListener('input', (e) => { 
-                lens1Data.element.focalLength = parseFloat(e.target.value); 
+                lens1Element.focalLength = parseFloat(e.target.value); 
                 document.getElementById('lens1-focal-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
             document.getElementById('lens2-x').addEventListener('input', (e) => { 
-                lens2Data.mesh.position.x = parseFloat(e.target.value); 
-                document.getElementById('lens2-x-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
+                const newX = parseFloat(e.target.value);
+                lens2Visual.position.x = newX;
+                lens2Element.mesh.position.x = newX;
+                document.getElementById('lens2-x-value').textContent = newX.toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
             document.getElementById('lens2-focal').addEventListener('input', (e) => { 
-                lens2Data.element.focalLength = parseFloat(e.target.value); 
+                lens2Element.focalLength = parseFloat(e.target.value); 
                 document.getElementById('lens2-focal-value').textContent = parseFloat(e.target.value).toFixed(1) + ' cm'; 
                 traceRaysCallback(); 
             });
@@ -292,5 +297,3 @@ export const componentSetups = {
         }
     },
 };
-
-
