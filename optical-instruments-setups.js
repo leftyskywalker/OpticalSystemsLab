@@ -28,8 +28,6 @@ export const instrumentSetups = {
             // --- UI Control Setup ---
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
-                <div class="setup-title">Crossed Czerny-Turner</div>
-                <p>An adjustable spectrometer setup. Change the angle and grating to see how it affects the light path.</p>
                 <div class="control-row">
                     <label for="cz-collimating-angle">Collimating Angle:</label>
                     <input type="range" id="cz-collimating-angle" min="-45" max="-5" value="-20" step="1">

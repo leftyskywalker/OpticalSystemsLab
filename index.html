@@ -5,21 +5,130 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Virtual Optics Lab - Modular Engine</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #fff; color: black; font-family: 'Inter', sans-serif; }
-        canvas { display: block; }
-        #controls-container { position: absolute; top: 10px; left: 10px; padding: 10px; background: rgba(255,255,255,0.7); border: 1px solid #ccc; border-radius: 8px; min-width: 320px; z-index: 10; }
-        .control-row { margin-bottom: 8px; display: flex; align-items: center; }
-        label { margin-right: 10px; min-width: 140px;}
-        input[type="range"], input[type="checkbox"] { vertical-align: middle; width: 100px;}
-        hr { border: 0; border-top: 1px solid #ccc; margin: 12px 0; }
-        .setup-title { font-weight: bold; margin-bottom: 5px; }
-        #pixel-viewer-container { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 10px; background: rgba(0,0,0,0.7); border-radius: 8px; text-align: center; z-index: 10; }
-        #pixel-viewer-container label { color: white; font-weight: bold; margin-bottom: 5px; display: block; }
-        #pixel-canvas { background-color: #000; border-radius: 4px; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #333; /* Dark background */
+            color: white; /* White text */
+            font-family: 'Roboto', sans-serif; /* Modern font */
+        }
+        canvas { 
+            display: block; 
+        }
+        #controls-container { 
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            padding: 15px; 
+            padding-right: 25px; /* Add more padding on the right */
+            background: rgba(0, 0, 0, 0.6); /* Frosted glass effect */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px; 
+            min-width: 360px; /* Increased min-width for more space */
+            z-index: 10;
+            backdrop-filter: blur(10px); /* Glassmorphism */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .control-row { 
+            margin-bottom: 12px; 
+            display: flex; 
+            align-items: center;
+            justify-content: flex-start; /* Align items to the start of the flex container */
+        }
+        label { 
+            width: 170px; /* Widened the labels */
+            text-align: right; /* Right-align text within the label's fixed width */
+            margin-right: 15px; /* Add space between label and control */
+            font-size: 0.9em;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 110px; /* Adjusted width */
+            height: 5px;
+            background: #555;
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+            vertical-align: middle;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #4a90e2; /* Accent color */
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        select {
+            background: #555;
+            color: white;
+            border: 1px solid #666;
+            padding: 5px;
+            border-radius: 5px;
+            width: 187px; /* Adjusted width */
+        }
+        .control-row span {
+            display: inline-block;
+            width: 70px; /* Widened the unit text container */
+            text-align: left;
+            padding-left: 5px;
+        }
+        hr { 
+            border: 0; 
+            border-top: 1px solid #555; 
+            margin: 15px 0; 
+        }
+        .setup-title { 
+            font-weight: bold; 
+            margin-bottom: 8px; 
+            color: #4a90e2; /* Accent color */
+            text-align: center; /* Center the setup titles */
+        }
+        #pixel-viewer-container { 
+            position: absolute; 
+            bottom: 15px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            padding: 10px; 
+            background: rgba(0,0,0,0.7); 
+            border-radius: 8px; 
+            text-align: center; 
+            z-index: 10; 
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        #pixel-viewer-container label { 
+            color: white; 
+            font-weight: bold; 
+            margin-bottom: 8px; 
+            display: block;
+            width: auto; /* Reset width for this specific label */
+            text-align: center;
+        }
+        #pixel-canvas { 
+            background-color: #111; 
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+        #setup-controls .control-row {
+            justify-content: flex-start; /* Ensure dynamic controls also align left */
+        }
+        #setup-controls .control-row label {
+             width: 170px; /* Apply same width to dynamic labels */
+        }
+        #setup-controls .control-row span {
+             width: 70px; /* Apply same width to dynamic spans */
+             padding-left: 5px;
+        }
+
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="controls-container">
@@ -63,7 +172,7 @@
         <div class="control-row" id="wavelength-slider-container" style="display: none;">
             <label for="wavelength-slider">Wavelength:</label>
             <input type="range" id="wavelength-slider" min="400" max="700" value="532" step="1">
-            <span id="wavelength-value" style="min-width: 50px;">532 nm</span>
+            <span id="wavelength-value">532 nm</span>
         </div>
 
         <div class="control-row" id="laser-pattern-controls">
@@ -82,7 +191,7 @@
         <div class="control-row">
             <label for="ray-count-slider">Number of Rays:</label>
             <input type="range" id="ray-count-slider" min="10" max="500" value="100" step="10">
-            <span id="ray-count-value" style="min-width: 50px;">100</span>
+            <span id="ray-count-value">100</span>
         </div>
         
         <div class="control-row" id="sensor-type-container" style="display: none;">
@@ -108,7 +217,6 @@
         <canvas id="pixel-canvas" width="200" height="200"></canvas>
     </div>
 
-    <!-- FIX: Updated to use modern importmap for consistent Three.js versions -->
     <script type="importmap">
         {
             "imports": {
@@ -117,8 +225,6 @@
             }
         }
     </script>
-
-    <!-- The main script is now loaded as a module -->
     <script type="module" src="main.js"></script>
 
 </body>
