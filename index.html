@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Optical Systems Lab created by Luke Fisanick</title>
+    <title>Virtual Optics Lab - Modular Engine</title>
     <style>
         body { 
             margin: 0; 
@@ -37,33 +37,31 @@
             position: absolute; 
             top: 55px; /* Adjusted top to make space for the title */
             left: 15px; 
-            padding: 15px; 
-            padding-right: 25px; /* Add more padding on the right */
+            padding: 10px; /* Reduced padding */
             background: rgba(0, 0, 0, 0.6); /* Always dark background */
             color: white; /* Always white text */
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 12px; 
-            min-width: 360px; /* Adjusted min-width */
+            min-width: 300px; /* Significantly reduced min-width */
             z-index: 10;
             backdrop-filter: blur(10px); /* Glassmorphism */
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         .control-row { 
-            margin-bottom: 12px; 
+            margin-bottom: 10px; /* Reduced margin */
             display: flex; 
             align-items: center;
             justify-content: flex-start; /* Align items to the start of the flex container */
         }
         label { 
-            width: 150px; /* Adjusted label width */
+            width: 110px; /* Reduced label width */
             text-align: right; /* Right-align text within the label's fixed width */
-            margin-right: 15px; /* Add space between label and control */
-            font-size: 0.9em;
+            margin-right: 10px; /* Reduced margin */
+            font-size: 0.85em; /* Slightly smaller font */
         }
         input[type="range"] {
             -webkit-appearance: none;
-            appearance: none;
-            width: 110px; /* Adjusted width */
+            width: 90px; /* Adjusted width */
             height: 5px;
             background: #555; /* Dark background for slider track */
             border-radius: 5px;
@@ -75,8 +73,8 @@
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 15px;
-            height: 15px;
+            width: 14px;
+            height: 14px;
             background: #4a90e2; /* Accent color */
             cursor: pointer;
             border-radius: 50%;
@@ -88,26 +86,29 @@
             background: #555; /* Dark background */
             color: white; /* White text */
             border: 1px solid #666;
-            padding: 5px;
+            padding: 4px; /* Reduced padding */
             border-radius: 5px;
-            width: 187px; /* Adjusted width */
+            width: 160px; /* Adjusted width */
+            font-size: 0.9em;
         }
         .control-row span {
             display: inline-block;
-            width: 85px; /* Widened the unit text container */
+            width: 60px; /* Reduced width */
             text-align: left;
             padding-left: 5px;
+            font-size: 0.9em;
         }
         hr { 
             border: 0; 
             border-top: 1px solid #555; /* Darker border */
-            margin: 15px 0; 
+            margin: 12px 0; 
         }
         .setup-title { 
             font-weight: bold; 
             margin-bottom: 8px; 
             color: #4a90e2; /* Accent color */
             text-align: center; /* Center the setup titles */
+            font-size: 0.95em;
         }
         #pixel-viewer-container { 
             position: absolute; 
@@ -137,10 +138,10 @@
             justify-content: flex-start; /* Ensure dynamic controls also align left */
         }
         #setup-controls .control-row label {
-             width: 150px; /* Apply same width to dynamic labels */
+             width: 110px; /* Apply same width to dynamic labels */
         }
         #setup-controls .control-row span {
-             width: 85px; /* Apply same width to dynamic spans */
+             width: 60px; /* Apply same width to dynamic spans */
              padding-left: 5px;
         }
         #setup-controls button {
@@ -154,6 +155,7 @@
             margin-left: auto;
             margin-right: auto;
             display: block;
+            font-size: 0.9em;
         }
         #setup-controls button:hover {
             background-color: #357abd;
