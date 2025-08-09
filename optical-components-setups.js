@@ -23,7 +23,8 @@ export const componentSetups = {
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
-                <div class="control-row"><label for="lens-x">Lens Position (X):</label><input type="range" id="lens-x" min="-5" max="5" value="0" step="0.1"><span id="lens-x-value">0.0 cm</span></div>
+                <div class="setup-title">Lens</div>
+                <div class="control-row"><label for="lens-x">Position (X):</label><input type="range" id="lens-x" min="-5" max="5" value="0" step="0.1"><span id="lens-x-value">0.0 cm</span></div>
                 <div class="control-row"><label for="focal-length">Focal Length:</label><input type="range" id="focal-length" min="1" max="10" value="4" step="0.1"><span id="focal-length-value">4.0 cm</span></div>`;
 
             document.getElementById('lens-x').addEventListener('input', (e) => {
@@ -92,8 +93,9 @@ export const componentSetups = {
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
-                <div class="control-row"><label for="mirror-x">Mirror Position (X):</label><input type="range" id="mirror-x" min="-5" max="5" value="0" step="0.1"><span id="mirror-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="mirror-angle">Mirror Angle:</label><input type="range" id="mirror-angle" min="-90" max="90" value="45" step="1"><span id="mirror-angle-value">45&deg;</span></div>`;
+                <div class="setup-title">Mirror</div>
+                <div class="control-row"><label for="mirror-x">Position (X):</label><input type="range" id="mirror-x" min="-5" max="5" value="0" step="0.1"><span id="mirror-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="mirror-angle">Angle:</label><input type="range" id="mirror-angle" min="-90" max="90" value="45" step="1"><span id="mirror-angle-value">45&deg;</span></div>`;
 
             document.getElementById('mirror-x').addEventListener('input', (e) => { 
                 mirrorData.mesh.position.x = parseFloat(e.target.value); 
@@ -117,9 +119,10 @@ export const componentSetups = {
 
                 const controlsDiv = document.getElementById('setup-controls');
                 controlsDiv.innerHTML = `
-                    <div class="control-row"><label for="mirror-x">Mirror Position (X):</label><input type="range" id="mirror-x" min="-5" max="8" value="5" step="0.1"><span id="mirror-x-value">5.0 cm</span></div>
+                    <div class="setup-title">Mirror</div>
+                    <div class="control-row"><label for="mirror-x">Position (X):</label><input type="range" id="mirror-x" min="-5" max="8" value="5" step="0.1"><span id="mirror-x-value">5.0 cm</span></div>
                     <div class="control-row"><label for="mirror-radius">Radius of Curvature:</label><input type="range" id="mirror-radius" min="-20" max="-5" value="-10" step="0.1"><span id="mirror-radius-value">-10.0 cm</span></div>
-                    <div class="control-row"><label for="mirror-angle">Mirror Angle:</label><input type="range" id="mirror-angle" min="-45" max="45" value="-45" step="1"><span id="mirror-angle-value">-45&deg;</span></div>`;
+                    <div class="control-row"><label for="mirror-angle">Angle:</label><input type="range" id="mirror-angle" min="-45" max="45" value="-45" step="1"><span id="mirror-angle-value">-45&deg;</span></div>`;
 
                 document.getElementById('mirror-x').addEventListener('input', (e) => {
                     mirrorData.mesh.position.x = parseFloat(e.target.value);
@@ -149,8 +152,9 @@ export const componentSetups = {
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
-                <div class="control-row"><label for="aperture-x">Aperture Position (X):</label><input type="range" id="aperture-x" min="-5" max="5" value="0" step="0.1"><span id="aperture-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="aperture-diameter">Diameter (mm):</label><input type="range" id="aperture-diameter" min="1" max="20" value="10" step="0.5"><span id="aperture-diameter-value">10.0 mm</span></div>
+                <div class="setup-title">Aperture</div>
+                <div class="control-row"><label for="aperture-x">Position (X):</label><input type="range" id="aperture-x" min="-5" max="5" value="0" step="0.1"><span id="aperture-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="aperture-diameter">Diameter:</label><input type="range" id="aperture-diameter" min="1" max="20" value="10" step="0.5"><span id="aperture-diameter-value">10.0 mm</span></div>
             `;
 
             document.getElementById('aperture-x').addEventListener('input', (e) => {
@@ -177,9 +181,10 @@ export const componentSetups = {
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
-                <div class="control-row"><label for="slit-x">Slit Position (X):</label><input type="range" id="slit-x" min="-5" max="5" value="0" step="0.1"><span id="slit-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="slit-width">Slit Width (µm):</label><input type="range" id="slit-width" min="10" max="500" value="50" step="5"><span id="slit-width-value">50 µm</span></div>
-                <div class="control-row"><label for="slit-height">Slit Height (mm):</label><input type="range" id="slit-height" min="1" max="20" value="12" step="0.5"><span id="slit-height-value">12.0 mm</span></div>
+                <div class="setup-title">Slit</div>
+                <div class="control-row"><label for="slit-x">Position (X):</label><input type="range" id="slit-x" min="-5" max="5" value="0" step="0.1"><span id="slit-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="slit-width">Width:</label><input type="range" id="slit-width" min="10" max="500" value="50" step="5"><span id="slit-width-value">50 µm</span></div>
+                <div class="control-row"><label for="slit-height">Height:</label><input type="range" id="slit-height" min="1" max="20" value="12" step="0.5"><span id="slit-height-value">12.0 mm</span></div>
             `;
 
             document.getElementById('slit-x').addEventListener('input', (e) => {
@@ -218,8 +223,9 @@ export const componentSetups = {
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
-                <div class="control-row"><label for="grating-x">Grating Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="grating-density">Groove Density (L/mm):</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600</span></div>
+                <div class="setup-title">Grating</div>
+                <div class="control-row"><label for="grating-x">Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="grating-density">Groove Density:</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600 L/mm</span></div>
                 <div class="control-row">
                     <label for="grating-orientation">Line Orientation:</label>
                     <select id="grating-orientation">
@@ -238,7 +244,7 @@ export const componentSetups = {
             document.getElementById('grating-density').addEventListener('input', (e) => {
                 const density = parseInt(e.target.value);
                 gratingData.element.linesPerMM = density;
-                document.getElementById('grating-density-value').textContent = density;
+                document.getElementById('grating-density-value').textContent = `${density} L/mm`;
                 traceRaysCallback();
             });
 
@@ -256,8 +262,9 @@ export const componentSetups = {
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
-                <div class="control-row"><label for="grating-x">Grating Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
-                <div class="control-row"><label for="grating-angle">Grating Angle:</label><input type="range" id="grating-angle" min="-45" max="45" value="0" step="1"><span id="grating-angle-value">0&deg;</span></div>
+                <div class="setup-title">Grating</div>
+                <div class="control-row"><label for="grating-x">Position (X):</label><input type="range" id="grating-x" min="-5" max="5" value="0" step="0.1"><span id="grating-x-value">0.0 cm</span></div>
+                <div class="control-row"><label for="grating-angle">Angle:</label><input type="range" id="grating-angle" min="-45" max="45" value="0" step="1"><span id="grating-angle-value">0&deg;</span></div>
                 <div class="control-row"><label for="grating-density">Grooves (L/mm):</label><input type="range" id="grating-density" min="100" max="2000" value="600" step="50"><span id="grating-density-value">600</span></div>
                 <div class="control-row">
                     <label for="grating-orientation">Line Orientation:</label>

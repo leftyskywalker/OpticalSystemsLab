@@ -124,6 +124,21 @@
              width: 70px; /* Apply same width to dynamic spans */
              padding-left: 5px;
         }
+        #setup-controls button {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+        }
+        #setup-controls button:hover {
+            background-color: #357abd;
+        }
 
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -204,7 +219,7 @@
         </div>
         
         <div class="control-row">
-            <label for="bg-toggle">Black Background:</label>
+            <label for="bg-toggle">Toggle Background:</label>
             <input type="checkbox" id="bg-toggle" style="width: auto;">
         </div>
 

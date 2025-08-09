@@ -173,8 +173,9 @@ export const instrumentSetups = {
 
             const controlsDiv = document.getElementById('setup-controls');
             controlsDiv.innerHTML = `
-                <div class="control-row"><label for="laser-y">Laser Vertical Pos:</label><input type="range" id="laser-y" min="-1.5" max="1.5" value="0" step="0.1"><span id="laser-y-value">0.0 cm</span></div>
-                <div class="control-row"><label for="laser-z">Laser Horizontal Pos:</label><input type="range" id="laser-z" min="-1.5" max="1.5" value="0" step="0.1"><span id="laser-z-value">0.0 cm</span></div>
+                <div class="setup-title">Laser</div>
+                <div class="control-row"><label for="laser-y">Vertical Position:</label><input type="range" id="laser-y" min="-1.5" max="1.5" value="0" step="0.1"><span id="laser-y-value">0.0 cm</span></div>
+                <div class="control-row"><label for="laser-z">Horizontal Position:</label><input type="range" id="laser-z" min="-1.5" max="1.5" value="0" step="0.1"><span id="laser-z-value">0.0 cm</span></div>
                 <hr>
                 <div class="setup-title">Lens</div>
                 <div class="control-row"><label for="lens-x">Position (X):</label><input type="range" id="lens-x" min="-5" max="5" value="0" step="0.1"><span id="lens-x-value">0.0 cm</span></div>
@@ -182,7 +183,7 @@ export const instrumentSetups = {
                 <hr>
                 <div class="setup-title">Detector</div>
                 <div class="control-row"><label for="detector-x">Position (X):</label><input type="range" id="detector-x" min="1" max="15" value="8" step="0.1"><span id="detector-x-value">8.0 cm</span></div>
-                <div class="control-row"><button id="autofocus-btn" style="width: 100%;">Auto-Focus</button></div>
+                <div class="control-row"><button id="autofocus-btn">Auto-Focus</button></div>
             `;
 
             const focalLengthSlider = document.getElementById('focal-length');
@@ -259,7 +260,7 @@ export const instrumentSetups = {
                 <hr>
                 <div class="setup-title">Detector</div>
                 <div class="control-row"><label for="detector-x">Position (X):</label><input type="range" id="detector-x" min="1" max="15" value="8" step="0.1"><span id="detector-x-value">8.0 cm</span></div>
-                <div class="control-row"><button id="autofocus-btn" style="width: 100%;">Auto-Focus</button></div>
+                <div class="control-row"><button id="autofocus-btn">Auto-Focus</button></div>
             `;
             
             document.getElementById('image-select').addEventListener('change', (e) => {

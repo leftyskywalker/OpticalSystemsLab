@@ -341,21 +341,21 @@ export function traceRays(config) {
                         const angle = (i / headRays) * 2 * Math.PI;
                         const yOffset = (beamSize / 2) * Math.sin(angle);
                         const zOffset = (beamSize / 2) * Math.cos(angle);
-                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y - yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
                     }
                     for (let i = 0; i < eyeRays; i++) {
                         const angle = (i / eyeRays) * 2 * Math.PI;
                         let yOffset = (beamSize * 0.1) * Math.sin(angle) + (beamSize * 0.2);
                         let zOffset = (beamSize * 0.1) * Math.cos(angle) - (beamSize * 0.2);
-                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y - yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
                         zOffset = (beamSize * 0.1) * Math.cos(angle) + (beamSize * 0.2);
-                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y - yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
                     }
                     for (let i = 0; i < mouthRays; i++) {
                         const angle = Math.PI + (i / mouthRays) * Math.PI;
                         const yOffset = (beamSize * 0.3) * Math.sin(angle) - (beamSize * 0.1);
                         const zOffset = (beamSize * 0.3) * Math.cos(angle);
-                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y + yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
+                        patternRays.push(new Ray(new THREE.Vector3(-9.75, laserSource.position.y - yOffset, laserSource.position.z + zOffset), parallelDirection, wl));
                     }
                     break;
             }
@@ -496,4 +496,3 @@ export function traceRays(config) {
         }
     }
 }
-

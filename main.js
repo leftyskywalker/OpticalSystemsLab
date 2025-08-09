@@ -132,7 +132,6 @@ function clearSetup() {
 
 function switchSetup(setupKey) {
     clearSetup();
-    cubeCamera.update(renderer, scene);
 
     const isLaserModel = setupKey === 'laser-model';
     const isImageObject = setupKey === 'camera-image-object';
@@ -149,6 +148,10 @@ function switchSetup(setupKey) {
     laserSource.visible = !isLaserModel && !isImageObject; // Hide placeholder if model is shown
     imageObject.visible = isImageObject;
     rayGroup.visible = !isLaserModel; // Hide rays for visual-only setups
+
+    // IMPORTANT: Update the cube camera *after* changing object visibility.
+    // This prevents the camera image from "leaking" into other setups' reflections.
+    cubeCamera.update(renderer, scene);
 
     const setup = setups[setupKey];
     if (setup) {
