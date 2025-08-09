@@ -194,6 +194,10 @@ document.getElementById('bg-toggle').addEventListener('change', (e) => {
     simulationConfig.backgroundColor = isDarkMode ? 'black' : 'white';
     scene.background.set(simulationConfig.backgroundColor === 'black' ? 0x000000 : 0xffffff);
     document.body.classList.toggle('dark-mode', isDarkMode);
+    
+    // Refresh the environment map for mirrors when the background changes
+    cubeCamera.update(renderer, scene);
+
     updateSimulation();
 });
 window.addEventListener('resize', () => {

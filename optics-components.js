@@ -36,8 +36,19 @@ export function createLens(name, position, focalLength, elementGroup) {
     const segments = 64;
 
     const edgeGeom = new THREE.CylinderGeometry(lensRadius, lensRadius, edgeThickness, segments, 1, false);
-    const edgeMesh = new THREE.Mesh(edgeGeom, frostedMaterial);
+    
+    // The top and bottom faces of the cylinder should be transparent, while the rim is frosted.
+    // Material Index 0: Side face (rim)
+    // Material Index 1: Top face
+    // Material Index 2: Bottom face
+    const edgeMaterials = [
+        frostedMaterial, // Rim
+        glassMaterial,   // Top face
+        glassMaterial    // Bottom face
+    ];
+    const edgeMesh = new THREE.Mesh(edgeGeom, edgeMaterials);
     lensGroup.add(edgeMesh);
+
 
     const h = (centerThickness - edgeThickness) / 2.0;
     if (h > 0) {
