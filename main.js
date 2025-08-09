@@ -190,8 +190,10 @@ document.getElementById('sensor-type-select').addEventListener('change', (e) => 
     updateSimulation();
 });
 document.getElementById('bg-toggle').addEventListener('change', (e) => {
-    simulationConfig.backgroundColor = e.target.checked ? 'black' : 'white';
+    const isDarkMode = e.target.checked;
+    simulationConfig.backgroundColor = isDarkMode ? 'black' : 'white';
     scene.background.set(simulationConfig.backgroundColor === 'black' ? 0x000000 : 0xffffff);
+    document.body.classList.toggle('dark-mode', isDarkMode);
     updateSimulation();
 });
 window.addEventListener('resize', () => {
@@ -208,6 +210,14 @@ function animate() {
 }
 
 // --- START THE APP ---
+// Set initial dark mode state based on checkbox
+const bgToggle = document.getElementById('bg-toggle');
+if (bgToggle.checked) {
+    document.body.classList.add('dark-mode');
+    scene.background.set(0x000000);
+    simulationConfig.backgroundColor = 'black';
+}
+
 loadImage('color-chart');
 switchSetup('single-lens');
 animate();

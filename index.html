@@ -8,20 +8,39 @@
         body { 
             margin: 0; 
             overflow: hidden; 
-            background-color: #333; /* Dark background */
-            color: white; /* White text */
+            background-color: #fff; /* Default to light background */
+            color: black; /* Default to black text */
             font-family: 'Roboto', sans-serif; /* Modern font */
+        }
+        body.dark-mode {
+            background-color: #333;
+            color: white;
         }
         canvas { 
             display: block; 
         }
+        #main-title {
+            position: absolute;
+            top: 10px; /* Moved closer to the top */
+            left: 25px;
+            z-index: 10;
+            font-size: 1.4em; /* Slightly smaller font size */
+            color: rgba(0, 0, 0, 0.7); /* Default text color for light bg */
+            text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: color 0.3s ease;
+        }
+        body.dark-mode #main-title {
+            color: rgba(255, 255, 255, 0.8); /* Text color for dark bg */
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
         #controls-container { 
             position: absolute; 
-            top: 15px; 
+            top: 60px; /* Adjusted top to make space for the title */
             left: 15px; 
             padding: 15px; 
             padding-right: 25px; /* Add more padding on the right */
-            background: rgba(0, 0, 0, 0.6); /* Frosted glass effect */
+            background: rgba(0, 0, 0, 0.6); /* Always dark background */
+            color: white; /* Always white text */
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 12px; 
             min-width: 360px; /* Increased min-width for more space */
@@ -45,7 +64,7 @@
             -webkit-appearance: none;
             width: 110px; /* Adjusted width */
             height: 5px;
-            background: #555;
+            background: #555; /* Dark background for slider track */
             border-radius: 5px;
             outline: none;
             opacity: 0.7;
@@ -65,8 +84,8 @@
             opacity: 1;
         }
         select {
-            background: #555;
-            color: white;
+            background: #555; /* Dark background */
+            color: white; /* White text */
             border: 1px solid #666;
             padding: 5px;
             border-radius: 5px;
@@ -80,7 +99,7 @@
         }
         hr { 
             border: 0; 
-            border-top: 1px solid #555; 
+            border-top: 1px solid #555; /* Darker border */
             margin: 15px 0; 
         }
         .setup-title { 
@@ -91,9 +110,8 @@
         }
         #pixel-viewer-container { 
             position: absolute; 
-            bottom: 15px; 
-            left: 50%; 
-            transform: translateX(-50%); 
+            top: 15px; /* Position to top */
+            right: 15px; /* Position to right */
             padding: 10px; 
             background: rgba(0,0,0,0.7); 
             border-radius: 8px; 
@@ -139,6 +157,18 @@
         #setup-controls button:hover {
             background-color: #357abd;
         }
+        #credit-text {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            font-size: 0.7em;
+            color: rgba(0, 0, 0, 0.5); /* Default color for light bg */
+            z-index: 10;
+            transition: color 0.3s ease;
+        }
+        body.dark-mode #credit-text {
+            color: rgba(255, 255, 255, 0.5); /* Color for dark bg */
+        }
 
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -146,6 +176,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <h1 id="main-title">Optical Systems Lab</h1>
     <div id="controls-container">
         <div class="control-row">
             <label for="setup-select">Optical Setup:</label>
@@ -231,6 +262,8 @@
         <label>Pixel Sensor Array</label>
         <canvas id="pixel-canvas" width="200" height="200"></canvas>
     </div>
+
+    <div id="credit-text">Created by Luke Fisanick</div>
 
     <script type="importmap">
         {
