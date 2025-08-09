@@ -217,10 +217,15 @@ export const instrumentSetups = {
                 traceRaysCallback(); 
             });
             document.getElementById('autofocus-btn').addEventListener('click', () => {
-                const so = Math.abs(laserSource.position.x - lensElement.mesh.position.x);
-                const si = Math.abs(detectorData.mesh.position.x - lensElement.mesh.position.x);
-                const f = 1 / (1 / so + 1 / si);
+                // For a collimated laser source, the focal point is simply the focal length.
+                // To focus on the detector, the focal length must equal the distance from the lens to the detector.
+                let f = Math.abs(detectorData.mesh.position.x - lensElement.mesh.position.x);
                 
+                // Clamp the calculated focal length to the slider's min/max values.
+                const minF = parseFloat(focalLengthSlider.min);
+                const maxF = parseFloat(focalLengthSlider.max);
+                f = Math.max(minF, Math.min(maxF, f));
+
                 lensElement.focalLength = f;
                 focalLengthSlider.value = f;
                 focalLengthValue.textContent = f.toFixed(1) + ' cm';
@@ -298,7 +303,11 @@ export const instrumentSetups = {
             document.getElementById('autofocus-btn').addEventListener('click', () => {
                 const so = Math.abs(imageObject.position.x - lensElement.mesh.position.x);
                 const si = Math.abs(detectorData.mesh.position.x - lensElement.mesh.position.x);
-                const f = 1 / (1 / so + 1 / si);
+                let f = 1 / (1 / so + 1 / si);
+
+                const minF = parseFloat(focalLengthSlider.min);
+                const maxF = parseFloat(focalLengthSlider.max);
+                f = Math.max(minF, Math.min(maxF, f));
 
                 lensElement.focalLength = f;
                 focalLengthSlider.value = f;
@@ -308,3 +317,4 @@ export const instrumentSetups = {
         }
     },
 };
+
